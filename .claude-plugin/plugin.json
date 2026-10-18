@@ -1,0 +1,60 @@
+{
+  "name": "usage-band-mod",
+  "version": "0.2.0",
+  "description": "A one-line band above the prompt with model, cost and bars for context, the 5-hour session, the week and per-model limits, plus a native macOS settings window.",
+  "author": {
+    "name": "Jonathan Locks",
+    "url": "https://github.com/jonathanlocks"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/jonathanlocks/usage-band-mod",
+  "repository": "https://github.com/jonathanlocks/usage-band-mod",
+  "keywords": [
+    "usage",
+    "limits",
+    "status",
+    "cost",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "idioma": {
+      "type": "string",
+      "title": "Language / Idioma",
+      "description": "Language of the band, the settings window and the commands.",
+      "options": [
+        "en",
+        "pt"
+      ],
+      "default": "en"
+    },
+    "moeda": {
+      "type": "string",
+      "title": "Currency",
+      "description": "Currency for the session cost. USD needs no network; the others use Coinbase's public USD rates.",
+      "options": [
+        "USD",
+        "BRL",
+        "EUR"
+      ],
+      "default": "USD"
+    },
+    "mascote": {
+      "type": "string",
+      "title": "Mascot",
+      "description": "The pixel crab next to the model name: animated, still, or hidden.",
+      "options": [
+        "animado",
+        "parado",
+        "oculto"
+      ],
+      "default": "animado"
+    },
+    "limitePorModelo": {
+      "type": "boolean",
+      "title": "Per-model weekly limit",
+      "description": "Shows per-model weekly limits (e.g. Fable). Reads an internal Anthropic endpoint that has no public documentation and may change.",
+      "default": true
+    }
+  }
+}

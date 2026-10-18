@@ -1,0 +1,6 @@
+.DS_Store
+*.log
+# Gerados pelo Claude Code ao carregar o mod
+.claude-plugin/types/
+# Gerado por arte/gerar_mascote.py --previa
+arte/previa.html

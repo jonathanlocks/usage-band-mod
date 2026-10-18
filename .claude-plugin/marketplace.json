@@ -1,0 +1,14 @@
+{
+  "name": "usage-band-mod",
+  "description": "A one-line usage band for Claude Code, with a native macOS settings window.",
+  "owner": {
+    "name": "Jonathan Locks"
+  },
+  "plugins": [
+    {
+      "name": "usage-band-mod",
+      "source": "./",
+      "description": "A one-line usage band above the prompt and a native macOS settings window."
+    }
+  ]
+}
