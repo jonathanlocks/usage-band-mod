@@ -77,11 +77,11 @@ test('números seguem o idioma', () => {
   expect(numero(1247.3, 2, 'en')).toBe('1,247.30')
 })
 
-test('dinheiro: dólar sem rede, outras moedas pela taxa e com ≈', () => {
+test('dinheiro: dólar sem rede, outras moedas pela taxa', () => {
   expect(dinheiro(3.26, 'USD', null, 'en')).toBe('$3.26')
   expect(dinheiro(3.26, 'USD', null, 'pt')).toBe('US$ 3,26')
-  expect(dinheiro(3.26, 'BRL', 5.4, 'pt')).toBe('≈ R$ 17,60')
-  expect(dinheiro(3.26, 'EUR', 0.92, 'en')).toBe('≈ €3.00')
+  expect(dinheiro(3.26, 'BRL', 5.4, 'pt')).toBe('R$ 17,60')
+  expect(dinheiro(3.26, 'EUR', 0.92, 'en')).toBe('€3.00')
   // Sem taxa para a moeda escolhida, fica em dólar em vez de inventar.
   expect(dinheiro(3.26, 'BRL', null, 'pt')).toBe('US$ 3,26')
 })

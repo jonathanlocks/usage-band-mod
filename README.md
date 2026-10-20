@@ -33,7 +33,7 @@
 
 ## What it shows
 
-- **Model and session cost.** The cost is what the session would cost at API prices. On a Pro or Max subscription it is an equivalent, not a charge. Show it in US dollars, Brazilian reais or euros; converted values are marked `≈` because they use market rates, not what your card charges.
+- **Model and session cost.** The cost is what the session would cost at API prices. On a Pro or Max subscription it is an equivalent, not a charge. Show it in US dollars, Brazilian reais or euros Converted values use market rates, not what your card charges.
 - **Context window** used by the current session.
 - **5-hour session and weekly limits** of your subscription. These two bars only appear in subscription sessions; with an API key, Bedrock or Vertex they stay hidden instead of sitting empty.
 - **Per-model weekly limit**, such as Fable, when your account has one.

@@ -69,7 +69,7 @@ final class Ajustes: ObservableObject {
 
     var t: Textos { Textos(idioma) }
 
-    // Mesmo formato da banda: dólar sem conversão; o resto pela taxa e com "≈".
+    // Mesmo formato da banda: dólar sem conversão; o resto pela taxa.
     func custo() -> String {
         let pt = idioma == .pt
         func numero(_ v: Double, _ casas: Int) -> String {
@@ -89,7 +89,7 @@ final class Ajustes: ObservableObject {
         case .EUR: simbolo = pt ? "€ " : "€"
         case .USD: simbolo = ""
         }
-        return "≈ " + simbolo + numero(amostra.usd * taxa, 2)
+        return simbolo + numero(amostra.usd * taxa, 2)
     }
 
     // Só para a prévia, quando o mod ainda não leu o câmbio.

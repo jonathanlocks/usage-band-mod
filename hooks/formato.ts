@@ -38,11 +38,9 @@ const SIMBOLO: Record<Moeda, Record<Idioma, string>> = {
 }
 
 // Custo em dólar mostrado na moeda escolhida. Sem taxa para ela, fica em dólar em vez de inventar.
-// Convertido leva "≈": é a taxa de mercado, não o que o cartão cobra.
 export function dinheiro(usd: number, moeda: Moeda, taxa: number | null, idioma: Idioma): string {
   if (moeda === 'USD' || taxa === null) return SIMBOLO.USD[idioma] + numero(usd, 2, idioma)
-  const valor = usd * taxa
-  return `≈ ${SIMBOLO[moeda][idioma]}${numero(valor, 2, idioma)}`
+  return SIMBOLO[moeda][idioma] + numero(usd * taxa, 2, idioma)
 }
 
 export function faltam(iso: string | null, agora: number): string {
