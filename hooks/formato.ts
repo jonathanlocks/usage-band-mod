@@ -60,15 +60,32 @@ export function corDe(pct: number | null): 'success' | 'warning' | 'error' | 'su
   return 'success'
 }
 
+// Preenchimento e trilho em células inteiras, desenhados como fundo pintado (a banda pinta o fundo
+// de espaços): sem emendas entre células, sem depender de glifo da fonte, da mesma altura do mascote.
+// Célula inteira: no Terminal.app o glifo de bloco é mais baixo que a célula, e um oitavo (▍) deixaria
+// um buraco ou um degrau antes do trilho.
+// Nos extremos a célula inteira mentiria: uso acima de 0 mostra ao menos uma célula cheia, e uso
+// abaixo de 100 deixa ao menos uma vazia. Sem leitura não há barra (quem desenha põe outra coisa).
 export function barra(pct: number | null, largura: number): { cheio: string; vazio: string } {
-  const p = pct === null ? 0 : Math.max(0, Math.min(100, pct))
-  const n = Math.round((p / 100) * largura)
-  return { cheio: '█'.repeat(n), vazio: '░'.repeat(Math.max(0, largura - n)) }
+  if (pct === null) return { cheio: '', vazio: '' }
+  const p = Math.max(0, Math.min(100, pct))
+  let n = Math.round((p / 100) * largura)
+  if (p > 0 && n === 0) n = Math.min(1, largura)
+  if (p < 100 && n === largura && largura > 1) n = largura - 1
+  return { cheio: ' '.repeat(n), vazio: ' '.repeat(Math.max(0, largura - n)) }
 }
 
+// `extra` é o detalhe já escrito: "↻ 2h 10m" para um reinício, "112k/200k" para o contexto.
 export type Trecho = { rotulo: string; pct: number | null; extra: string }
 
-const MARGEM = 2
+// A linha começa depois de um recuo de uma coluna (paddingLeft do Box, como o resto do Claude Code)
+// e, com barras, para uma coluna antes da borda. Toda conta de largura soma o recuo.
+export const RECUO = 1
+const MARGEM_DIREITA = 1
+// Espaço antes de cada trecho: três com barras (a barra já separa, mas o detalhe dim encostava
+// no rótulo seguinte), dois no modo compacto, onde o trecho é só "Rótulo 56%".
+export const SEP_BARRAS = 3
+export const SEP_COMPACTO = 2
 
 // Partes do cabeçalho, em colunas: o glifo do mascote (com o espaço), o modelo e o custo.
 export type Cabeca = { glifo: number; modelo: number; custo: number }
@@ -78,29 +95,32 @@ export type Encaixe = { w: number; resto: number; comExtra: boolean; cabeca: Niv
 
 // O percentual como a banda escreve: "56%", ou "—" sem leitura.
 export const pctTexto = (pct: number | null): string => (pct === null ? '—' : `${Math.round(pct)}%`)
+// O percentual ocupa sempre 4 colunas (o que falta vira espaço no fim do trecho): o número encosta
+// na barra dele e a barra não anda quando o número ganha um dígito.
+export const PCT_COLUNAS = 4
 
 const largCabeca = (c: Cabeca, nivel: NivelCabeca): number =>
   nivel === 'toda' ? c.glifo + c.modelo + c.custo : nivel === 'sem-custo' ? c.glifo + c.modelo : nivel === 'so-modelo' ? c.modelo : 0
 
-// Banda de uma linha só no terminal. Com barras, cada trecho é "  Rótulo ███░░  56%" e as barras
-// dividem por igual o espaço que sobra (`resto` barras, as primeiras, levam uma coluna a mais).
+// Banda de uma linha só no terminal. Com barras, cada trecho é "   Rótulo ███░░ 56% ↻ 2h 10m" e as
+// barras dividem por igual o espaço que sobra (`resto` barras, as primeiras, levam uma coluna a mais).
 // Sem barras, o trecho fica compacto: "  Rótulo 56%".
-// O que sai quando aperta, nesta ordem: o detalhe (↻), as barras, o custo, o mascote, o modelo e,
+// O que sai quando aperta, nesta ordem: o detalhe, as barras, o custo, o mascote, o modelo e,
 // por fim, os últimos trechos (`mostrar` diz quantos ficam).
 export function encaixe(colunas: number, cabeca: Cabeca, trechos: Trecho[]): Encaixe {
-  const comBarra = (t: Trecho, comExtra: boolean) => 2 + t.rotulo.length + 1 + 1 + 4 + (comExtra && t.extra !== '' ? 3 + t.extra.length : 0)
-  const compacto = (t: Trecho) => 2 + t.rotulo.length + 1 + pctTexto(t.pct).length
+  const comBarra = (t: Trecho, comExtra: boolean) => SEP_BARRAS + t.rotulo.length + 1 + 1 + PCT_COLUNAS + (comExtra && t.extra !== '' ? 1 + t.extra.length : 0)
+  const compacto = (t: Trecho) => SEP_COMPACTO + t.rotulo.length + 1 + pctTexto(t.pct).length
   const n = trechos.length
   const fixoBarras = (comExtra: boolean) => largCabeca(cabeca, 'toda') + 2 + trechos.reduce((s, t) => s + comBarra(t, comExtra), 0)
-  const livre = (comExtra: boolean) => colunas - MARGEM - fixoBarras(comExtra)
+  const livre = (comExtra: boolean) => colunas - RECUO - MARGEM_DIREITA - fixoBarras(comExtra)
   const dividir = (comExtra: boolean): Encaixe => ({ w: Math.floor(livre(comExtra) / n), resto: livre(comExtra) % n, comExtra, cabeca: 'toda', mostrar: n })
   if (n > 0 && livre(true) >= 5 * n) return dividir(true)
   if (n > 0 && livre(false) >= 3 * n) return dividir(false)
   const soma = (k: number) => trechos.slice(0, k).reduce((s, t) => s + compacto(t), 0)
   for (const nivel of ['toda', 'sem-custo', 'so-modelo'] as const) {
-    if (largCabeca(cabeca, nivel) + 2 + soma(n) <= colunas) return { w: 0, resto: 0, comExtra: false, cabeca: nivel, mostrar: n }
+    if (RECUO + largCabeca(cabeca, nivel) + 2 + soma(n) <= colunas) return { w: 0, resto: 0, comExtra: false, cabeca: nivel, mostrar: n }
   }
   let k = n
-  while (k > 0 && 2 + soma(k) > colunas) k--
+  while (k > 0 && RECUO + 2 + soma(k) > colunas) k--
   return { w: 0, resto: 0, comExtra: false, cabeca: 'nada', mostrar: k }
 }

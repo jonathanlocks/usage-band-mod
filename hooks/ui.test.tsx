@@ -5,7 +5,7 @@ import type { Engine } from 'claude-code/testing'
 import { textos } from './textos'
 
 // Uma sessão de assinatura com os números do exemplo do README.
-function sessao(on: On, assinatura = true, windows = false) {
+function sessao(on: On, assinatura = true, windows = false, contexto: unknown = { window: 200_000, tokens: 48_000, percent: 24 }) {
   const relogio = mock.clock(on, { now: 1_000_000_000 })
   mock.store(on)
   mock.env(on, windows ? { OS: 'Windows_NT' } : {})
@@ -14,7 +14,7 @@ function sessao(on: On, assinatura = true, windows = false) {
   on('session.usage', async () => ({
     value: {
       startedAt: 0,
-      context: { window: 200_000, tokens: 48_000, percent: 24 },
+      context: contexto,
       rateLimits: assinatura
         ? [
             { kind: 'five_hour', percentUsed: 5, resetsAt: '2026-10-18T20:00:00Z' },
@@ -101,4 +101,88 @@ test('o × esconde a banda', { options: { limitePorModelo: false } }, async ($, 
   expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
   await ui.press({ key: 'ocultar' })
   expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeUndefined()
+})
+
+const PINTADAS = ['success', 'warning', 'error', 'subtle']
+// Texto de um nó desenhado: strings, rótulo de Button, recursivo.
+function texto(n: unknown): string {
+  if (typeof n === 'string') return n
+  if (Array.isArray(n)) return n.map(texto).join('')
+  if (n === null || typeof n !== 'object') return ''
+  const o = n as { type?: string; props?: Record<string, unknown>; children?: unknown }
+  if (o.type === 'Button') return String(o.props?.label ?? '')
+  // Célula de barra (fundo pintado com a cor de um nível ou do trilho) aparece como █ no texto.
+  if (o.type === 'Text' && PINTADAS.includes(String(o.props?.backgroundColor))) return texto(o.children ?? o.props?.children).replace(/ /g, '█')
+  return texto(o.children ?? o.props?.children)
+}
+type No = { type?: string; props?: Record<string, unknown>; children?: unknown }
+const filhos = (n: unknown): No[] => {
+  const o = n as No
+  const c = o.children ?? o.props?.children
+  return (Array.isArray(c) ? c : [c]).flat(Infinity as 1).filter(x => x !== null && x !== undefined && x !== false) as No[]
+}
+const todos = (n: unknown): No[] => (typeof n === 'object' && n !== null ? [n as No, ...filhos(n).flatMap(todos)] : [])
+
+test('o ↻ só marca reinício: o contexto mostra tokens sem ele, no terminal e no desktop', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  sessao(on)
+  await comecar($)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface, component: 'AbovePrompt', props: BANDA(180) })
+    const s = texto(filhos(await ui.drawn())[0])
+    expect(s).toMatch(/24% *48k\/200k/)
+    expect(s.includes('↻ 48k')).toBe(false)
+    expect(s).toMatch(/5% *↻ \d/)
+    expect(s).toMatch(/1% *↻ \d/)
+    await ui.unmount()
+  }
+})
+
+test('no terminal: alinhada à esquerda, barras de fundo pintado com trilho na cor discreta do tema, × discreto', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  sessao(on)
+  await comecar($)
+  for (const col of [60, 140]) {
+    const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(col) })
+    const linha = filhos(await ui.drawn())[0] as No
+    expect(linha.props?.paddingLeft).toBe(1)
+    expect(linha.props?.justifyContent).toBeUndefined()
+    const fechar = todos(linha).find(n => n.type === 'Button')
+    expect(fechar?.props?.label).toBe('×')
+    expect(fechar?.props?.dimColor).toBe(true)
+    const trilhos = todos(linha).filter(n => n.type === 'Text' && n.props?.backgroundColor === 'subtle')
+    if (col === 140) {
+      expect(trilhos.length).toBe(3)
+      expect(trilhos.every(t => /^█+$/.test(texto(t)))).toBe(true)
+      expect(todos(linha).some(n => n.type === 'Text' && n.props?.backgroundColor === 'success')).toBe(true)
+    }
+    expect(texto(linha).includes('░')).toBe(false)
+    await ui.unmount()
+  }
+})
+
+test('sem leitura de contexto: linha pontilhada apagada no lugar da barra, — apagado, e a linha fecha na largura', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  sessao(on, true, false, { window: 200_000 })
+  await comecar($)
+  for (let col = 100; col <= 200; col += 7) {
+    const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(col) })
+    const linha = filhos(await ui.drawn())[0] as No
+    const s = texto(linha)
+    expect(s).toMatch(/Contexto ·+ —      5h █/)
+    // Nenhuma célula de trilho no trecho do contexto: só o 5h e o 7d pintam.
+    expect(todos(linha).filter(n => n.type === 'Text' && n.props?.backgroundColor === 'subtle').length).toBe(2)
+    const traco = todos(linha).find(n => n.type === 'Text' && texto(n) === ' —')
+    expect(traco?.props?.dimColor).toBe(true)
+    expect(1 + [...s].length).toBe(col - 1)
+    await ui.unmount()
+  }
+})
+
+test('o percentual encosta na barra dele e o resto das 4 colunas vai para o fim do trecho', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  sessao(on)
+  await comecar($)
+  const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(180) })
+  const s = texto(filhos(await ui.drawn())[0])
+  expect(s).toMatch(/Contexto █+ 24% 48k\/200k    5h █+ 5% ↻ [^ ]+ [^ ]+     7d █+ 1% ↻ [^ ]+ [^ ]+   ×$/)
+  // 5% e 1% acima de zero: ao menos uma célula cheia na barra.
+  const linha = filhos(await ui.drawn())[0] as No
+  expect(todos(linha).filter(n => n.type === 'Text' && n.props?.backgroundColor === 'success').length).toBe(3)
 })

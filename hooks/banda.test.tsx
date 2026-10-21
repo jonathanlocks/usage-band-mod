@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On, RenderPropsOf, SessionStartInput, SessionUsage } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 import { encaixe } from './formato'
+import { MASCOTE_TEXTO } from './ui'
 
 const AGORA = 1_000_000_000
 function sessao(on: On, assinatura: boolean, store: Record<string, unknown> = {}) {
@@ -39,6 +40,7 @@ function sessao2(on: On, assinatura: boolean, store: Record<string, unknown>) {
 const comecar = ($: Engine) => $.session.start({ cwd: '/tmp', surface: null, isInteractive: true } as unknown as SessionStartInput)
 const BANDA = (colunas: number) => ({ hasSurvey: false, isWorking: false, maxRows: 3, bodyColumns: colunas }) as unknown as RenderPropsOf['AbovePrompt']
 
+const PINTADAS = ['success', 'warning', 'error', 'subtle']
 // Texto de um nó desenhado: strings, rótulo de Button, recursivo.
 function texto(n: unknown): string {
   if (typeof n === 'string') return n
@@ -47,6 +49,8 @@ function texto(n: unknown): string {
   if (n === null || typeof n !== 'object') return ''
   const o = n as { type?: string; props?: Record<string, unknown>; children?: unknown }
   if (o.type === 'Button') return String(o.props?.label ?? '')
+  // Célula de barra (fundo pintado com a cor de um nível ou do trilho) aparece como █ no texto.
+  if (o.type === 'Text' && PINTADAS.includes(String(o.props?.backgroundColor))) return texto(o.children ?? o.props?.children).replace(/ /g, '█')
   return texto(o.children ?? o.props?.children)
 }
 const filhos = (n: unknown): unknown[] => {
@@ -56,42 +60,36 @@ const filhos = (n: unknown): unknown[] => {
 }
 
 const casos = [
-  { nome: '1 trecho', assinatura: false, porModelo: false, n: 1 },
-  { nome: '3 trechos', assinatura: true, porModelo: false, n: 3 },
-  { nome: '4 trechos', assinatura: true, porModelo: true, n: 4 },
+  { nome: '1 trecho', assinatura: false, porModelo: false },
+  { nome: '3 trechos', assinatura: true, porModelo: false },
+  { nome: '4 trechos', assinatura: true, porModelo: true },
 ]
 const MODELOS = { modelos: { em: AGORA, lidoEm: AGORA, estado: 'ok', detalhe: '', limites: [{ modelo: 'Fable', pct: 3, reinicia: null }] } }
-const relatorio: string[] = []
+const ROTULOS = /Contexto|Context|5h|7d|Fable/g
 
-for (const caso of casos) {
-  // 183 larguras por caso: no runner do Windows o primeiro caso passa perto dos 5 s padrão.
-  test(`largura desenhada bate com encaixe, ${caso.nome}`, { options: { idioma: 'pt', limitePorModelo: caso.porModelo }, timeoutMs: 30_000 }, async ($, on) => {
+// Toda largura de 10 a 220, nos dois idiomas, medindo o que a linha ocupa DE VERDADE: o recuo
+// (paddingLeft do Box da linha) mais o texto. Com barras, a linha fecha uma coluna antes da borda.
+for (const idioma of ['pt', 'en'] as const) for (const caso of casos) {
+  // 211 larguras por caso: no runner do Windows isso passa dos 5 s padrão.
+  test(`largura desenhada (com o recuo) cabe em toda largura de 10 a 220, ${caso.nome}, ${idioma}`, { options: { idioma, limitePorModelo: caso.porModelo }, timeoutMs: 60_000 }, async ($, on) => {
     sessao(on, caso.assinatura, caso.porModelo ? MODELOS : {})
     await comecar($)
-    const ordem: string[] = []
-    for (let col = 18; col <= 200; col++) {
+    for (let col = 10; col <= 220; col++) {
       const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(col) })
-      const raiz = await ui.drawn()
-      const linha = filhos(raiz)[0]
+      const linha = filhos(await ui.drawn())[0] as { props?: { paddingLeft?: number } }
       const s = texto(linha)
-      const largura = [...s].length
-      const temBarra = /(Contexto|5h|7d|Fable) [█░]/.test(s)
-      const nivel = (s.includes('US$') ? 'C' : '') + (s.includes('▐▛') ? 'G' : '') + (s.includes('Opus 5.5') ? 'M' : '')
-      const trechos = (s.match(/Contexto|5h|7d|Fable/g) ?? []).length
-      if (ordem[ordem.length - 1] !== `${nivel}/${trechos}/${temBarra ? 'b' : 'c'}`) ordem.unshift(`${col}:${nivel}/${trechos}/${temBarra ? 'b' : 'c'}`)
-      if (largura > col) throw new Error(`col ${col}: largura ${largura} > colunas: "${s}"`)
-      if (temBarra && largura !== col - 2) throw new Error(`col ${col}: com barras, largura ${largura} != ${col - 2}: "${s}"`)
+      const ocupa = (linha.props?.paddingLeft ?? 0) + [...s].length
+      const temBarra = /(Contexto|Context|5h|7d|Fable) █/.test(s)
+      const trechos = (s.match(ROTULOS) ?? []).length
+      if (ocupa > col) throw new Error(`col ${col}: a linha ocupa ${ocupa} > ${col}: "${s}"`)
+      if (temBarra && ocupa !== col - 1) throw new Error(`col ${col}: com barras, ocupa ${ocupa} != ${col - 1}: "${s}"`)
       if (!temBarra) {
         // compacto: um espaço só entre rótulo e percentual
-        for (const m of s.matchAll(/(Contexto|5h|7d|Fable)( +)(\d+%|—)/g)) if (m[2] !== ' ') throw new Error(`col ${col}: espaço duplo "${m[0]}"`)
-        if (!/  (Contexto|5h|7d|Fable) (\d+%|—)/.test(s) && trechos > 0) throw new Error(`col ${col}: trecho não compacto "${s}"`)
+        for (const m of s.matchAll(/(Contexto|Context|5h|7d|Fable)( +)(\d+%|—)/g)) if (m[2] !== ' ') throw new Error(`col ${col}: espaço duplo "${m[0]}"`)
+        if (!/  (Contexto|Context|5h|7d|Fable) (\d+%|—)/.test(s) && trechos > 0) throw new Error(`col ${col}: trecho não compacto "${s}"`)
       }
-      if (col === 80) relatorio.push(`${caso.nome} @80: "${s}"`)
-      if (col === 18 || col === 30 || col === 45) relatorio.push(`${caso.nome} @${col}: "${s}"`)
       await ui.unmount()
     }
-    relatorio.push(`${caso.nome} transições (col:CGM/trechos/modo, desc): ${ordem.join(' ')}`)
-    void 0
   })
 }
 
@@ -101,7 +99,24 @@ test('80 colunas, 3 trechos: cabeçalho inteiro', { options: { idioma: 'pt', lim
   const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(80) })
   expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /US\$ 3,26/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: '▐▛███▜▌ ' })).toBeDefined()
+  // O mascote abre a linha: braço, corpo laranja com olhos pretos, braço, e um espaço.
+  const mascote = filhos(filhos(await ui.drawn())[0])[0] as { type: string; children: unknown[] }
+  expect(mascote.type).toBe('Text')
+  expect(texto(mascote)).toBe(`${MASCOTE_TEXTO} `)
+  const olhos = filhos(mascote).filter(p => texto(p) === '▮') as { props: Record<string, unknown> }[]
+  expect(olhos.map(o => o.props)).toEqual([{ color: '#000000', backgroundColor: 'claude' }, { color: '#000000', backgroundColor: 'claude' }])
+})
+
+test('o mascote oculto some do terminal e a linha ainda fecha na largura', { options: { idioma: 'pt', limitePorModelo: false, mascote: 'oculto' } }, async ($, on) => {
+  sessao(on, true)
+  await comecar($)
+  for (const col of [60, 100, 160]) {
+    const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(col) })
+    const s = texto(filhos(await ui.drawn())[0])
+    expect(s.includes('▮')).toBe(false)
+    if (/Contexto █/.test(s)) expect([...s].length).toBe(col - 2)
+    await ui.unmount()
+  }
 })
 
 test('ordem de queda do cabeçalho em encaixe', () => {

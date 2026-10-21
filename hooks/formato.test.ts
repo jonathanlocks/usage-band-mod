@@ -1,15 +1,15 @@
 import { expect, test } from 'claude-code/testing'
 
-import { dinheiro, encaixe, nomeBonito, numero, pctTexto } from './formato'
+import { PCT_COLUNAS, RECUO, SEP_BARRAS, SEP_COMPACTO, barra, dinheiro, encaixe, nomeBonito, numero, pctTexto } from './formato'
 import type { Cabeca, Trecho } from './formato'
 
-// Cabeçalho de exemplo: "▐▛███▜▌ " (8), "Opus 5.5" (8), " · US$ 3,26" (11).
-const CABECA: Cabeca = { glifo: 8, modelo: 8, custo: 11 }
+// Cabeçalho de exemplo: o mascote e um espaço (6), "Opus 5.5" (8), " · US$ 3,26" (11).
+const CABECA: Cabeca = { glifo: 6, modelo: 8, custo: 11 }
 const TRECHOS: Trecho[] = [
   { rotulo: 'Contexto', pct: 42, extra: '84k/200k' },
-  { rotulo: '5h', pct: 30, extra: '2h 10m' },
-  { rotulo: '7d', pct: 12, extra: '3d 4h' },
-  { rotulo: 'Fable', pct: 61, extra: '3d 4h' },
+  { rotulo: '5h', pct: 30, extra: '↻ 2h 10m' },
+  { rotulo: '7d', pct: null, extra: '↻ 3d 4h' },
+  { rotulo: 'Fable', pct: 61, extra: '↻ 3d 4h' },
 ]
 
 // Largura real da linha que a banda desenha no terminal, pela mesma conta do desenho em ui.tsx.
@@ -18,9 +18,9 @@ function largura(colunas: number, trechos: Trecho[]): number {
   const cab = cabeca === 'toda' ? CABECA.glifo + CABECA.modelo + CABECA.custo : cabeca === 'sem-custo' ? CABECA.glifo + CABECA.modelo : cabeca === 'so-modelo' ? CABECA.modelo : 0
   const usados = trechos.slice(0, mostrar)
   const corpo = w === 0
-    ? usados.reduce((s, t) => s + 2 + t.rotulo.length + 1 + pctTexto(t.pct).length, 0)
-    : resto + usados.reduce((s, t) => s + 2 + t.rotulo.length + 1 + w + 1 + 4 + (comExtra ? 3 + t.extra.length : 0), 0)
-  return cab + corpo + 2
+    ? usados.reduce((s, t) => s + SEP_COMPACTO + t.rotulo.length + 1 + pctTexto(t.pct).length, 0)
+    : resto + usados.reduce((s, t) => s + SEP_BARRAS + t.rotulo.length + 1 + w + 1 + PCT_COLUNAS + (comExtra ? 1 + t.extra.length : 0), 0)
+  return RECUO + cab + corpo + 2
 }
 
 test('terminal largo: barras esticadas e detalhe', () => {
@@ -56,9 +56,9 @@ test('a linha nunca passa da largura disponível, de 18 a 200 colunas, com ou se
   }
 })
 
-test('com barras, a linha ocupa a largura toda menos a margem', () => {
+test('com barras, a linha (recuo incluído) ocupa a largura toda menos a margem direita', () => {
   for (let colunas = 100; colunas <= 200; colunas++) {
-    expect(largura(colunas, TRECHOS)).toBe(colunas - 2)
+    expect(largura(colunas, TRECHOS)).toBe(colunas - 1)
   }
 })
 
@@ -84,4 +84,18 @@ test('dinheiro: dólar sem rede, outras moedas pela taxa', () => {
   expect(dinheiro(3.26, 'EUR', 0.92, 'en')).toBe('€3.00')
   // Sem taxa para a moeda escolhida, fica em dólar em vez de inventar.
   expect(dinheiro(3.26, 'BRL', null, 'pt')).toBe('US$ 3,26')
+})
+
+test('barra: células inteiras, com os extremos honestos', () => {
+  expect(barra(56, 9)).toEqual({ cheio: ' '.repeat(5), vazio: ' '.repeat(4) })
+  expect(barra(130, 4)).toEqual({ cheio: '    ', vazio: '' })
+  expect(barra(0, 9)).toEqual({ cheio: '', vazio: ' '.repeat(9) })
+  // Acima de 0 e abaixo de meia célula: uma célula cheia, não um trilho vazio.
+  expect(barra(2, 9)).toEqual({ cheio: ' ', vazio: ' '.repeat(8) })
+  expect(barra(4, 9)).toEqual({ cheio: ' ', vazio: ' '.repeat(8) })
+  // Abaixo de 100 e perto dele: uma célula vazia, não uma barra cheia.
+  expect(barra(97, 9)).toEqual({ cheio: ' '.repeat(8), vazio: ' ' })
+  expect(barra(100, 9)).toEqual({ cheio: ' '.repeat(9), vazio: '' })
+  // Sem leitura não há barra nenhuma (quem desenha põe a linha pontilhada).
+  expect(barra(null, 9)).toEqual({ cheio: '', vazio: '' })
 })
