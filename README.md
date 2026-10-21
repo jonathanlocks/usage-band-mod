@@ -16,9 +16,9 @@
 
 <br>
 
-<img src="docs/band-terminal.svg" width="100%" alt="Claude Code in a terminal. Above the prompt box, one line reads: Opus 5.5, $34.63, Context 56%, 5h 25%, 7d 4%, Fable 2%">
+<img src="docs/band-terminal.svg" width="100%" alt="Claude Code in a terminal. Above the prompt box, one line reads: a small orange crab face, Opus 5.5, $34.63, Context 56%, 5h 25%, 7d 4%, Fable 2%, each with a solid bar">
 
-<sub>In the terminal: drawn from the band's real output at 110 columns.</sub>
+<sub>In the terminal: the band line is the mod's real output at 110 columns with sample numbers, drawn cell by cell in Claude Code's dark theme colors; the window around it is an illustration.</sub>
 
 <br><br>
 
@@ -40,11 +40,11 @@
 - **Per-model weekly limit**, such as Fable, when your account has one.
 - **Colors** follow the level: green below 60%, yellow from 60%, red from 85%.
 - **Narrow terminals** keep the line on one row. Space runs out in this order: the reset times, then the bars, then the cost, the mascot and the model, and only then the last bars.
-- **Reset times** next to each bar (`↻ 2h 10m`) when the line has room.
+- **Reset times** next to the 5-hour, weekly and per-model bars (`↻ 2h 10m`), and the tokens used next to the context bar (`112k/200k`), when the line has room.
 
 ## Meet the mascot
 
-A pixel crab sits at the start of the band and runs through 13 gestures in a 56-second loop. Pick animated, still or hidden; it stays still when your system asks for reduced motion.
+A pixel crab sits at the start of the band and runs through 13 gestures in a 56-second loop. Pick animated, still or hidden; it stays still when your system asks for reduced motion. In the terminal, which has no pictures, it is a one-line face: arms, an orange body and two black eyes.
 
 | | | | | |
 |:-:|:-:|:-:|:-:|:-:|
