@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-10-21)
 
 - Terminal look: the mascot is a whole one-line Clawd face (arms at mid height, an orange body and two black eyes, 5 columns) instead of the top row of the Claude Code logo, which read as cut off. Bars are painted cells, the level color on a track in the theme's subtle gray, without the `░` texture; use above 0% fills at least one cell and use below 100% leaves at least one empty; with no reading the bar is a dim dotted line, not an empty track. Each percentage sits right after its bar. The band is left-aligned with a one-column margin, like the rest of Claude Code, with more room between segments and a dim `×` that inverts under the pointer. `↻` only marks reset times, so the context reads `112k/200k` (also on the desktop). In 0.3.0 the centered line could lose a character at some widths (for example `Fable 2` for `Fable 2%`, `↻ 4d 0` for `↻ 4d 0h`); the left-aligned line, with its margin counted, fits every width from 10 to 220 columns.
 - The per-model bar (e.g. Fable) no longer disappears for up to 10 minutes after this session's own read failed while another open session had just read it: a session whose last try failed now picks up the newer reading from the shared store on the next minute, and still waits the full interval before asking the network again.
