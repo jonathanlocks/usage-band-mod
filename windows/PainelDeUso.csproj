@@ -1,0 +1,50 @@
+<!--
+  Janela de ajustes do Windows: WPF sobre o .NET Framework 4.8, que já vem no Windows 10 (1903+) e
+  no 11. Um exe só, AnyCPU (roda nativo em x64 e em ARM64), sem pacote NuGet.
+  O build é determinístico: o mesmo código com o SDK fixado em global.json dá o mesmo exe, byte a
+  byte, em qualquer máquina. É isso que permite conferir o PainelDeUso.exe publicado (build.ps1).
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <AssemblyName>PainelDeUso</AssemblyName>
+    <RootNamespace>PainelDeUso</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <PathMap>$(MSBuildProjectDirectory)=/src</PathMap>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <EnableSourceLink>false</EnableSourceLink>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NuGetAudit>false</NuGetAudit>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <Version>0.3.0</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
+    <InformationalVersion>0.3.0</InformationalVersion>
+    <Product>Usage band</Product>
+    <AssemblyTitle>Usage band settings</AssemblyTitle>
+    <Company>Jonathan Locks</Company>
+    <Copyright>MIT License</Copyright>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Sources\*.cs" />
+    <Page Include="Sources\MainWindow.xaml;Sources\Controles.xaml" />
+    <ApplicationDefinition Include="Sources\App.xaml" />
+    <!-- JavaScriptSerializer (leitura do estado que o mod manda). System.Web só para o compilador de XAML resolver
+         as dependências de System.Web.Extensions; os dois vêm com o .NET Framework. -->
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Web" />
+  </ItemGroup>
+</Project>

@@ -4,3 +4,7 @@
 .claude-plugin/types/
 # Gerado por arte/gerar_mascote.py --previa
 arte/previa.html
+
+# Gerados por windows/build.ps1 (dotnet build)
+windows/bin/
+windows/obj/

@@ -1,0 +1,172 @@
+<!--
+  Aparência dos controles da janela, no jeito do Windows 11: segmentado, interruptor, botão de
+  destaque, anel de foco, cartão e divisor. As cores são recursos dinâmicos (Tema.cs): mudam com o
+  tema do sistema e, em alto contraste, viram as cores do sistema com bordas de 1 px.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:PainelDeUso">
+
+  <local:IgualA x:Key="IgualA" />
+
+  <!-- Anel de foco (só com o teclado): 2 px na cor do texto e 1 px do tom oposto por dentro, como no Windows 11. -->
+  <Style x:Key="FocoSegmento">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Grid Margin="-3" SnapsToDevicePixels="True">
+            <Border CornerRadius="7" BorderThickness="2" BorderBrush="{DynamicResource CorFoco}" />
+            <Border Margin="2" CornerRadius="5" BorderThickness="1" BorderBrush="{DynamicResource CorFocoInterno}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="FocoBotao">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Grid Margin="-3" SnapsToDevicePixels="True">
+            <Border CornerRadius="7" BorderThickness="2" BorderBrush="{DynamicResource CorFoco}" />
+            <Border Margin="2" CornerRadius="5" BorderThickness="1" BorderBrush="{DynamicResource CorFocoInterno}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="FocoInterruptor">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Grid Margin="-3" SnapsToDevicePixels="True">
+            <Border CornerRadius="13" BorderThickness="2" BorderBrush="{DynamicResource CorFoco}" />
+            <Border Margin="2" CornerRadius="11" BorderThickness="1" BorderBrush="{DynamicResource CorFocoInterno}" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Trilho do segmentado: o fundo cinza que segura os segmentos. -->
+  <Style x:Key="TrilhoSegmentos" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource CorSegmentos}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CorBorda}" />
+    <Setter Property="BorderThickness" Value="{DynamicResource EspessuraBorda}" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="2" />
+    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <!-- Um segmento: o escolhido em laranja com texto branco; os outros transparentes. Raio 4 por
+       dentro do trilho de raio 6 com 2 de folga: os cantos ficam concêntricos. -->
+  <Style x:Key="Segmento" TargetType="RadioButton">
+    <Setter Property="Foreground" Value="{DynamicResource CorTexto}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocoSegmento}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="RadioButton">
+          <Border x:Name="Fundo" CornerRadius="4" Padding="14,5" Background="Transparent"
+                  BorderThickness="{DynamicResource EspessuraBorda}" BorderBrush="Transparent">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Fundo" Property="Background" Value="{DynamicResource CorHover}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Fundo" Property="Background" Value="{DynamicResource CorDestaque}" />
+              <Setter TargetName="Fundo" Property="BorderBrush" Value="{DynamicResource CorBorda}" />
+              <Setter Property="Foreground" Value="{DynamicResource CorTextoDestaque}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Interruptor: trilho 40×20 e bolinha que anda (Interruptor em Controles.cs). -->
+  <Style x:Key="EstiloInterruptor" TargetType="local:Interruptor">
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocoInterruptor}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="local:Interruptor">
+          <Grid Width="40" Height="20" Background="Transparent">
+            <Border x:Name="Trilho" CornerRadius="10" BorderThickness="1"
+                    BorderBrush="{DynamicResource CorBordaInterruptor}" Background="Transparent" />
+            <Ellipse x:Name="Bolinha" Width="14" Height="14" HorizontalAlignment="Left" VerticalAlignment="Center"
+                     Fill="{DynamicResource CorBolinha}" RenderTransformOrigin="0.5,0.5">
+              <Ellipse.RenderTransform>
+                <TransformGroup>
+                  <ScaleTransform x:Name="Escala" ScaleX="0.857" ScaleY="0.857" />
+                  <TranslateTransform x:Name="Desloca" X="3" />
+                </TransformGroup>
+              </Ellipse.RenderTransform>
+            </Ellipse>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Trilho" Property="Background" Value="{DynamicResource CorDestaque}" />
+              <Setter TargetName="Trilho" Property="BorderBrush" Value="{DynamicResource CorDestaque}" />
+              <Setter TargetName="Bolinha" Property="Fill" Value="{DynamicResource CorTextoDestaque}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Botão de destaque (Pronto): laranja com texto branco; claro ao passar o mouse, mais ao apertar. -->
+  <Style x:Key="BotaoDestaque" TargetType="Button">
+    <Setter Property="Foreground" Value="{DynamicResource CorTextoDestaque}" />
+    <Setter Property="MinWidth" Value="96" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource FocoBotao}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid>
+            <Border x:Name="Fundo" CornerRadius="4" Background="{DynamicResource CorDestaque}"
+                    BorderBrush="{DynamicResource CorBorda}" BorderThickness="{DynamicResource EspessuraBorda}" />
+            <ContentPresenter Margin="16,6" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="False" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Fundo" Property="Opacity" Value="0.92" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Fundo" Property="Opacity" Value="0.84" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="Cartao" TargetType="Border">
+    <Setter Property="Background" Value="{DynamicResource CorCartao}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource CorBordaCartao}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <Style x:Key="Divisor" TargetType="Rectangle">
+    <Setter Property="Height" Value="1" />
+    <Setter Property="Margin" Value="14,0,0,0" />
+    <Setter Property="Fill" Value="{DynamicResource CorDivisor}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+  </Style>
+
+  <Style x:Key="Nota" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource CorSecundaria}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="Margin" Value="0,3,0,0" />
+  </Style>
+
+</ResourceDictionary>

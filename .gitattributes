@@ -1,0 +1,12 @@
+# Fim de linha LF em todo sistema: um checkout no Windows com core.autocrlf=true não muda os hashes
+# publicados (o app do Mac é assinado), os testes nem as comparações de texto.
+* text=auto eol=lf
+*.sh text eol=lf
+*.ps1 text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.sha256 text eol=lf
+*.png binary
+*.ico binary
+*.exe binary
+macos/PainelDeUso.app/** -text

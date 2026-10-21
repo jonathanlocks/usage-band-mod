@@ -1,0 +1,16 @@
+<!--
+  O aplicativo: sem janela inicial (App.xaml.cs cria a janela depois de ler os argumentos) e com os
+  estilos de Controles.xaml. Fecha quando a janela fecha.
+-->
+<Application x:Class="PainelDeUso.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnMainWindowClose">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Controles.xaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>
