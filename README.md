@@ -22,7 +22,7 @@
 
 <br><br>
 
-<img src="docs/band-desktop.png" width="100%" alt="The band in the Claude desktop app: pixel crab, Opus 5.5, cost in reais, and bars for context 56%, 5h 25%, 7d 4% and Fable 2%">
+<img src="docs/band-desktop.png" width="100%" alt="The band in the Claude desktop app: pixel crab mascot, Opus 5.5, cost R$ 372,71, and bars for Contexto 32%, 5h 36%, 7d 48% and Fable 13%, then the settings gear and the close mark">
 
 <sub>In the Claude desktop app.</sub>
 
