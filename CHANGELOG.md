@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The per-model bar (e.g. Fable) no longer disappears for up to 10 minutes after this session's own read failed while another open session had just read it: a session whose last try failed now picks up the newer reading from the shared store on the next minute, and still waits the full interval before asking the network again.
+
 ## 0.3.0 (2026-10-20)
 
 - Settings window for Windows 10 (1903 or later) and Windows 11, as a preview: a WPF app in `windows/`, one executable of about 60 KB with no runtime to install (.NET Framework 4.8 ships with Windows). Same preview, same four settings, both languages, light and dark theme, high contrast, reduced motion, keyboard and screen-reader names; on Windows 11 it requests the Mica background. Checked on GitHub Actions runners (Windows Server 2022 and 2025, Windows 11 ARM64): build, protocol, keyboard, accessibility tree and screenshots. Not yet run by a person, and not yet opened from a signed-in Claude Code session on Windows; Mica was accepted by the system on the runners but not seen on screen.

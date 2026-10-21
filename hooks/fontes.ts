@@ -123,13 +123,17 @@ export async function medirModelos($: EngineInterface, idadeMax = INTERVALO_MODE
   if (agora - buscandoDesde < TRAVA) return
   buscandoDesde = agora
   try {
+    const recente = (m: LeituraModelos | null): boolean => m !== null && agora - m.em < idadeMax
     const naMemoria = await read($, modelos)
-    if (naMemoria !== null && agora - naMemoria.em < idadeMax) return
+    if (recente(naMemoria) && naMemoria?.estado === 'ok') return
+    // Depois de uma falha desta sessão, o store ainda pode trazer a leitura que outra sessão acabou de fazer.
     const guardada = modelosValidos(await $.store.get(CHAVE_MODELOS))
-    if (guardada !== null && agora - guardada.em < idadeMax) {
-      await update($, modelos, () => guardada)
+    if (guardada !== null && recente(guardada)) {
+      if (JSON.stringify(guardada) !== JSON.stringify(naMemoria)) await update($, modelos, () => guardada)
       return
     }
+    // A falha recente desta sessão segura a próxima tentativa, mesmo sem nada no store.
+    if (recente(naMemoria)) return
     if (await silencioDeRede($)) return
     const nova = await buscarModelos($, agora)
     // Uma falha guarda o motivo, mas não apaga os últimos números lidos.

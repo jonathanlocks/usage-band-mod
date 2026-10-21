@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
-import type { HttpResponse, On, SessionStartInput, SessionUsage } from 'claude-code'
+import type { HttpResponse, On, RenderPropsOf, SessionStartInput, SessionUsage } from 'claude-code'
 
-import { ESPERAS, INTERVALO_CAMBIO, cambioValido, lerCambio, lerModelos, medirCambio, modelosValidos, proximaTentativa } from './fontes'
+import { ESPERAS, INTERVALO_CAMBIO, INTERVALO_MODELOS, cambioValido, lerCambio, lerModelos, medirCambio, modelosValidos, proximaTentativa } from './fontes'
 
 test('lerModelos pega só as janelas semanais por modelo', () => {
   const corpo = JSON.stringify({
@@ -89,4 +89,57 @@ test('com silêncio de rede ligado, nada sai mesmo em outra moeda', { options: {
   await $.session.start({ cwd: '/tmp', surface: null, isInteractive: true } as unknown as SessionStartInput)
   await relogio.advance(3_600_000)
   expect(rede.chamadas).toBe(0)
+})
+
+// Um $.store de verdade para várias sessões: o teste escreve nele como outra sessão escreveria.
+function disco(on: On): Record<string, unknown> {
+  const d: Record<string, unknown> = {}
+  on('store.get', async (_$, e) => ({ value: d[e.key] }))
+  on('store.set', async (_$, e) => { d[e.key] = e.value; return { value: undefined } })
+  on('store.delete', async (_$, e) => { delete d[e.key]; return { value: undefined } })
+  on('store.keys', async () => ({ value: Object.keys(d) }))
+  return d
+}
+
+const BANDA = { hasSurvey: false, isWorking: false, maxRows: 3, bodyColumns: 160 } as unknown as RenderPropsOf['AbovePrompt']
+
+test('a falha da própria sessão não esconde o limite por modelo que outra sessão acabou de ler', { options: { moeda: 'USD', limitePorModelo: true } }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const d = disco(on)
+  mock.env(on, {})
+  const rede = { chamadas: 0, status: 503 }
+  sessao(on, rede)
+  on('session.authorize', async () => ({ value: { handle: 'h', kind: 'bearer' } }))
+  on('ui.render', async ($, e) => {
+    const { Box } = $.ui.resolve(e)
+    return <Box key="vazio" />
+  })
+  await $.session.start({ cwd: '/tmp', surface: null, isInteractive: true } as unknown as SessionStartInput)
+  await relogio.advance(1_000)
+  // Esta sessão tentou e foi recusada: o motivo fica gravado, sem números.
+  expect(modelosValidos(d.modelos)?.estado).toBe('recusado')
+  expect(rede.chamadas).toBe(1)
+  // Outra sessão aberta lê com sucesso e grava no mesmo store.
+  const agora = relogio.now()
+  d.modelos = { em: agora, lidoEm: agora, estado: 'ok', detalhe: '', limites: [{ modelo: 'Fable', pct: 13, reinicia: null }] }
+  // No minuto seguinte a banda desta sessão já mostra o Fable, sem pedir de novo à rede.
+  await relogio.advance(60_000)
+  const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA })
+  expect(await ui.find({ type: 'Text', text: /Fable/ })).toBeDefined()
+  expect(rede.chamadas).toBe(1)
+})
+
+test('depois de uma falha, a sessão espera o intervalo antes de pedir de novo', { options: { moeda: 'USD', limitePorModelo: true } }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  disco(on)
+  mock.env(on, {})
+  const rede = { chamadas: 0, status: 503 }
+  sessao(on, rede)
+  on('session.authorize', async () => ({ value: { handle: 'h', kind: 'bearer' } }))
+  await $.session.start({ cwd: '/tmp', surface: null, isInteractive: true } as unknown as SessionStartInput)
+  await relogio.advance(1_000)
+  for (let i = 0; i < 9; i++) await relogio.advance(60_000)
+  expect(rede.chamadas).toBe(1)
+  await relogio.advance(INTERVALO_MODELOS)
+  expect(rede.chamadas).toBe(2)
 })
