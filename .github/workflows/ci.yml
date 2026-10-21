@@ -1,0 +1,124 @@
+# Validar, testar e conferir os tipos do mod em Linux, macOS e Windows; conferir os hashes publicados
+# dos dois apps; recompilar o PainelDeUso.exe em duas imagens do Windows e comparar com o publicado.
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mod:
+    name: validate, test, tsc (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-24.04, macos-15 e windows-2022. O macOS custa 10 vezes mais num repositório privado:
+        # fora do repositório público ele só roda a pedido (workflow_dispatch).
+        os: ${{ fromJSON((github.repository == 'jonathanlocks/usage-band-mod' || github.event_name == 'workflow_dispatch') && '["ubuntu-24.04","macos-15","windows-2022"]' || '["ubuntu-24.04","windows-2022"]') }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Claude Code (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install Claude Code (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./windows/ci/instalar-claude.ps1
+      - run: claude --version
+      - run: claude plugin validate --strict .
+      - run: claude plugin test .
+      # O Claude Code só grava .claude-plugin/types/ (que o tsconfig estende) quando vigia a pasta do
+      # plugin; sem login ele para em "Not logged in", mas os tipos já ficaram gravados.
+      - name: Lay the plugin types (no login needed; "Not logged in" is expected)
+        shell: bash
+        env:
+          CLAUDE_CODE_PLUGIN_DIR_WATCH: '1'
+        run: claude --plugin-dir "$PWD" -p "types" || true
+      - run: test -f .claude-plugin/types/claude-code/index.d.ts
+        shell: bash
+      - run: npx -y -p typescript@5.9.3 tsc -p .
+      - name: Mascot source matches its generator
+        shell: bash
+        run: $(command -v python3 || command -v python) arte/gerar_mascote.py --check
+  hashes:
+    name: published hashes and line endings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cd macos && sha256sum -c PainelDeUso.sha256
+      - run: cd windows && sha256sum -c PainelDeUso.sha256
+      - name: No CRLF in the index
+        run: '! git ls-files --eol | grep -E "^i/crlf|^i/mixed"'
+  install:
+    name: install like a user (windows-2022)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Claude Code
+        shell: pwsh
+        run: ./windows/ci/instalar-claude.ps1
+      - name: CI-only scripts refuse to run outside GitHub Actions
+        shell: pwsh
+        run: |
+          $env:GITHUB_ACTIONS = ''
+          $casos = @{
+            'captura-tela' = @{}; 'protocolo' = @{ Exe = 'x' }; 'a11y' = @{ Exe = 'x'; Estado = 'x'; Saida = 'x' }
+            'instalar-plugin' = @{}; 'instalar-claude' = @{}
+            'terminal-portatil' = @{ Versao = 'x'; Sha256X64 = 'x'; Sha256Arm64 = 'x'; Destino = 'x' }
+          }
+          $falhou = $false
+          foreach ($nome in $casos.Keys) {
+            $parametros = $casos[$nome]
+            try { & "./windows/ci/$nome.ps1" @parametros *> $null; Write-Host "SEM TRAVA: $nome"; $falhou = $true }
+            catch { if ($_.Exception.Message -match 'só roda no GitHub Actions') { Write-Host "trava ok: $($_.Exception.Message)" } else { Write-Host "erro inesperado em ${nome}: $($_.Exception.Message)"; $falhou = $true } }
+          }
+          if ($falhou) { exit 1 }
+      - name: Install, list, open the app from the plugin folder, uninstall
+        shell: pwsh
+        run: ./windows/ci/instalar-plugin.ps1 -Saida out/instalacao.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: install-windows-2022
+          path: out/
+  exe:
+    name: rebuild PainelDeUso.exe (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: windows/global.json
+      - name: Build and compare with windows/PainelDeUso.sha256
+        shell: pwsh
+        run: |
+          Push-Location windows; dotnet --version; Pop-Location
+          ./windows/build.ps1
+      - name: Smoke test (opens, renders, exits)
+        shell: pwsh
+        run: ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Saida smoke.png -Opcoes --claro
+      - name: Protocol with the mod (argv, stdout, keyboard)
+        shell: powershell
+        run: ./windows/ci/protocolo.ps1 -Exe windows/PainelDeUso.exe -Saida protocolo.txt
+      - name: Hash of what was built
+        if: always()
+        shell: pwsh
+        run: Get-FileHash windows/PainelDeUso.exe -Algorithm SHA256 | Format-List
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: exe-${{ matrix.os }}
+          path: |
+            windows/PainelDeUso.exe
+            windows/PainelDeUso.sha256
+            windows/bin/Release/net48/PainelDeUso.exe
+            smoke.png
+            protocolo.txt

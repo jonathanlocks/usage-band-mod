@@ -1,0 +1,118 @@
+# Imagens da janela do Windows para conferir a olho: PNGs desenhados pelo próprio app (--print), em
+# inglês e português, claro e escuro, pelo caminho do Windows 11 e pelo do 10 (--win10); capturas de tela de verdade; a árvore de
+# acessibilidade; e um teste dos glifos da banda num console (texto fixo, não uma sessão do Claude Code). Manual: gh workflow run capturas.yml [-f arm=true] [-f compilar=true]
+name: Windows screenshots
+on:
+  workflow_dispatch:
+    inputs:
+      arm:
+        description: also run on windows-11-arm (uses paid minutes on private repos)
+        type: boolean
+        default: false
+      compilar:
+        description: build the exe from source instead of using the committed windows/PainelDeUso.exe
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  capturas:
+    name: screenshots (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.arm && '["windows-2022","windows-2025","windows-11-arm"]' || '["windows-2022","windows-2025"]') }}
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.os == 'windows-11-arm' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: ${{ inputs.compilar }}
+        with:
+          global-json-file: windows/global.json
+      - name: Build from source (instead of the committed exe)
+        if: ${{ inputs.compilar }}
+        shell: pwsh
+        # Dentro de windows/, onde está o global.json: fora dela o dotnet usaria outro SDK, e o exe sairia
+        # diferente do publicado.
+        run: |
+          Push-Location windows
+          dotnet --version
+          dotnet build PainelDeUso.csproj -c Release -nologo -v quiet
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item bin/Release/net48/PainelDeUso.exe PainelDeUso.exe -Force
+          Pop-Location
+      - name: Facts about this runner
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory out | Out-Null
+          $v = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+          $fatos = @(
+            "runner: ${{ matrix.os }}"
+            "windows: $($v.ProductName) $($v.DisplayVersion) build $($v.CurrentBuild).$($v.UBR)"
+            ".NET Framework Release: $((Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full').Release)"
+            "arquitetura: $env:PROCESSOR_ARCHITECTURE"
+            "explorer (área de trabalho): $([bool](Get-Process explorer -ErrorAction SilentlyContinue))"
+            "tela: $((Get-CimInstance Win32_VideoController | Select-Object -First 1 | ForEach-Object { "$($_.CurrentHorizontalResolution)x$($_.CurrentVerticalResolution)" }))"
+            "Smart App Control (VerifiedAndReputablePolicyState; 0 = desligado, 1 = ligado, 2 = avaliação): $((Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CI\Policy' -ErrorAction SilentlyContinue).VerifiedAndReputablePolicyState)"
+            "PainelDeUso.exe sha256: $((Get-FileHash windows/PainelDeUso.exe -Algorithm SHA256).Hash.ToLowerInvariant())"
+          )
+          $fatos | Tee-Object -FilePath out/fatos.txt
+      - name: Rendered by the app (--print)
+        shell: pwsh
+        run: |
+          foreach ($idioma in 'en','pt') { foreach ($tema in 'claro','escuro') {
+            ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado "windows/ci/amostra-$idioma.json" -Saida "out/ajustes-$idioma-$tema.png" -Opcoes "--$tema"
+            ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado "windows/ci/amostra-$idioma.json" -Saida "out/ajustes-$idioma-$tema-win10.png" -Opcoes "--$tema",'--win10'
+          } }
+          foreach ($tema in 'claro','escuro') {
+            ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-niveis.json -Saida "out/niveis-$tema.png" -Opcoes "--$tema"
+          }
+          # Só a janela, sem margem nem fundo de exemplo: o enquadramento da imagem do Mac no README.
+          ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Saida out/readme-escuro.png -Opcoes '--escuro','--recorte'
+          ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Saida out/readme-claro-win10.png -Opcoes '--claro','--win10','--recorte'
+      - name: Real screenshots (light and dark, en and pt)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          foreach ($idioma in 'en','pt') { foreach ($tema in 'claro','escuro') {
+            ./windows/ci/captura-tela.ps1 -Exe windows/PainelDeUso.exe -Estado "windows/ci/amostra-$idioma.json" -Tema $tema -Papel -Saida "out/tela-$idioma-$tema.png"
+          } }
+      - name: Real screenshot with keyboard focus (arrow keys in the language group)
+        shell: powershell
+        continue-on-error: true
+        run: ./windows/ci/captura-tela.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Tema escuro -Papel -Teclas '{RIGHT}{LEFT}' -Saida out/tela-en-foco.png
+      - name: Real screenshot in high contrast
+        shell: powershell
+        continue-on-error: true
+        run: ./windows/ci/captura-tela.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Tema escuro -AltoContraste -Saida out/tela-en-alto-contraste.png
+      - name: Accessibility tree
+        shell: powershell
+        run: |
+          ./windows/ci/a11y.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Saida out/a11y-en.txt
+          ./windows/ci/a11y.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-pt.json -Saida out/a11y-pt.txt
+      - name: Glyph check in the legacy console (conhost)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          ./windows/ci/captura-tela.ps1 -SoPapel -Tema escuro
+          $p = Start-Process conhost.exe -ArgumentList 'powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',"$PWD\windows\ci\banda-terminal.ps1" -PassThru
+          Start-Sleep 5
+          ./windows/ci/captura-tela.ps1 -Janela 'banda' -Margem 0 -Saida out/console-conhost.png
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Get-CimInstance Win32_Process -Filter "ParentProcessId = $($p.Id)" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+      - name: Glyph check in Windows Terminal (portable)
+        shell: powershell
+        continue-on-error: true
+        run: |
+          $wt = ./windows/ci/terminal-portatil.ps1 -Versao 1.25.2733.0 -Sha256X64 bf3ef2012f6c44d8340a4c58125acc9498d19b580f9890dc043cdf831852e796 -Sha256Arm64 11b4fe264ecaa71b08cd84195536f68c669808155338e9f47f4da668b4cf0e26 -Destino "$env:RUNNER_TEMP\wt" | Select-Object -Last 1
+          $p = Start-Process $wt -ArgumentList 'powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$PWD\windows\ci\banda-terminal.ps1`"" -PassThru
+          Start-Sleep 8
+          ./windows/ci/captura-tela.ps1 -Janela 'banda' -Margem 0 -Saida out/console-wt.png
+          # Só o terminal que este passo abriu: matar todos derrubou o próprio job no windows-2025.
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: capturas-${{ matrix.os }}
+          path: out/
