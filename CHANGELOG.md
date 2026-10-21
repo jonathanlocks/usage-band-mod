@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0 (2026-10-20)
+
+- Settings window for Windows 10 (1903 or later) and Windows 11, as a preview: a WPF app in `windows/`, one executable of about 60 KB with no runtime to install (.NET Framework 4.8 ships with Windows). Same preview, same four settings, both languages, light and dark theme, high contrast, reduced motion, keyboard and screen-reader names; on Windows 11 it requests the Mica background. Checked on GitHub Actions runners (Windows Server 2022 and 2025, Windows 11 ARM64): build, protocol, keyboard, accessibility tree and screenshots. Not yet run by a person, and not yet opened from a signed-in Claude Code session on Windows; Mica was accepted by the system on the runners but not seen on screen.
+- On Windows, the ⚙ on the band and `/usage-settings` should open that window; the mod offers it only when .NET Framework 4.8 is present. The executable is not code-signed: if Windows (Smart App Control, antivirus) keeps it from opening, the command says so and points to `/config`, and the ⚙ shows the same message in a toast.
+- `windows/PainelDeUso.sha256` holds the executable's SHA-256; `windows/build.ps1` rebuilds it with the pinned .NET SDK and compares. The build is deterministic: CI compiles it on two different Windows images and checks that both match the published hash.
+- `INSTALL-MACOS.md` and `INSTALL-WINDOWS.md`: step-by-step install guides written for agents.
+- `.gitattributes` keeps line endings LF on every platform, so hashes and tests survive a Windows checkout.
+- CI on GitHub Actions: validate, test and type-check on Linux, macOS and Windows; check both published hashes; rebuild the Windows app; talk to it the way the mod does; install the mod from PowerShell. A manual workflow takes screenshots of the Windows window and scans its accessibility tree.
+- The "window needs macOS 26" message now names Windows too; the command description says "(macOS, Windows)".
+- Lines from the settings app are trimmed before parsing, so `\r\n` endings are accepted.
+- The width-sweep tests have 30 seconds instead of 5: Windows runners are slower.
+
 ## 0.2.0 (2026-10-18)
 
 - The `/uso` panel is gone: the band shows everything, and the settings window handles the options.

@@ -9,9 +9,10 @@
 [![GitHub stars](https://img.shields.io/github/stars/jonathanlocks/usage-band-mod?style=flat&logo=github)](https://github.com/jonathanlocks/usage-band-mod/stargazers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Claude Code mod](https://img.shields.io/badge/Claude%20Code-mod-D87656)](https://docs.claude.com/en/docs/claude-code)
-[![macOS 26](https://img.shields.io/badge/settings%20window-macOS%2026-black?logo=apple)](#settings-window-macos)
+[![Settings window: macOS 26 · Windows (preview)](https://img.shields.io/badge/settings%20window-macOS%2026%20%C2%B7%20Windows%20(preview)-black)](#settings-window-macos-and-windows)
+[![CI](https://github.com/jonathanlocks/usage-band-mod/actions/workflows/ci.yml/badge.svg)](https://github.com/jonathanlocks/usage-band-mod/actions/workflows/ci.yml)
 
-[Install](#install) · [What it shows](#what-it-shows) · [Meet the mascot](#meet-the-mascot) · [What leaves your machine](#what-leaves-your-machine) · [Settings window](#settings-window-macos)
+[Install](#install) · [What it shows](#what-it-shows) · [Meet the mascot](#meet-the-mascot) · [What leaves your machine](#what-leaves-your-machine) · [Settings window](#settings-window-macos-and-windows)
 
 <br>
 
@@ -29,7 +30,7 @@
 
 ---
 
-**Status:** early release (0.2.0), maintained by one person. Tested on macOS 26.6 with Claude Code 2.1.302, in the terminal and in the desktop app. The band works anywhere Claude Code runs; the settings window needs macOS 26.
+**Status:** early release (0.3.0), maintained by one person. Tested on macOS 26.6 with Claude Code 2.1.302, in the terminal and in the desktop app. The Windows settings window is a preview: on GitHub Actions runners (Windows Server 2022 and 2025 on x64, Windows 11 25H2 on ARM64) it was built, opened, driven by UI Automation and the keyboard, and checked by screenshot, but no person has used it yet. On Windows, the band itself and opening the window from a Claude Code session have not been run yet (CI has no login). The settings window needs macOS 26 or Windows 10/11 with .NET Framework 4.8.
 
 ## What it shows
 
@@ -67,14 +68,16 @@ From a shell:
 claude plugin install usage-band-mod --marketplace jonathanlocks/usage-band-mod
 ```
 
-The install screen asks for the options below. Change them later in `/config`, under `usage-band-mod`, or in the settings window on macOS.
+The install screen asks for the options below. Change them later in `/config`, under `usage-band-mod`, or in the settings window on macOS and Windows.
+
+Step-by-step guides, written so an agent can follow them: [INSTALL-MACOS.md](INSTALL-MACOS.md) · [INSTALL-WINDOWS.md](INSTALL-WINDOWS.md).
 
 ## Commands
 
 | Command | What it does |
 |---|---|
 | `/usage-band` | Shows or hides the band. The `×` on the band hides it too. |
-| `/usage-settings` | Opens the settings window (macOS 26). In the desktop app, the ⚙ on the band does the same. |
+| `/usage-settings` | Opens the settings window (macOS 26; Windows 10/11 as a preview, see Status). In the desktop app, the ⚙ on the band does the same. |
 
 With the language set to Portuguese, the commands are `/uso-barra` and `/uso-ajustes`.
 
@@ -104,9 +107,14 @@ Nothing about your conversations, projects or files is sent. With `CLAUDE_CODE_D
 - For a one-off look at your limits, Claude Code's own `/usage` is enough.
 - For reports across past sessions and days, use a log analyzer such as [ccusage](https://github.com/ccusage/ccusage). This mod only shows the current session and your live limits; it keeps no history.
 
-## Settings window (macOS)
+## Settings window (macOS and Windows)
 
-<img src="docs/ajustes-en.png" width="540" alt="Settings window on macOS 26: a preview of the band, then language, cost currency, mascot style and the per-model weekly limit switch, on Liquid Glass">
+| | |
+|:-:|:-:|
+| <img src="docs/ajustes-en.png" width="100%" alt="Settings window on macOS 26: a preview of the band, then language, cost currency, mascot style and the per-model weekly limit switch, on Liquid Glass"> | <img src="docs/ajustes-windows-en.png" width="100%" alt="Settings window on Windows in the dark theme, rendered by the app: the same preview of the band and the same four settings"> |
+| <sub>macOS 26, Liquid Glass</sub> | <sub>Windows, dark theme: the window's content rendered at 2× by the app's `--print` on a CI runner (Windows Server 2025). The title bar strip is drawn by the app; the real one belongs to Windows.</sub> |
+
+### macOS
 
 `macos/PainelDeUso.app` is a small SwiftUI app built from [`macos/Sources/PainelDeUso.swift`](macos/Sources/PainelDeUso.swift). It does not use the network. It talks to the mod only through standard output, one JSON line per change, and changes apply to the band right away. Its only file output is a PNG, and only when you run it by hand with the developer flag `--print`.
 
@@ -118,7 +126,22 @@ The repository ships the app already built (universal, ad-hoc signed), so you do
 
 The published hash comes from Swift 6.4 (Xcode command line tools with the macOS 26 SDK). Another Swift version can produce a different binary, and then the check fails even though the source is the same.
 
-On Windows, Linux or macOS before 26, use `/config`. The options are the same.
+### Windows
+
+`windows/PainelDeUso.exe` is a small WPF app built from [`windows/Sources`](windows/Sources) on .NET Framework 4.8, which Windows 10 (1903 and later) and Windows 11 already include; nothing to install. It follows the system theme, high contrast and reduced motion, works with the keyboard, and gives every control a name for screen readers such as Narrator; all of that was checked on CI runners, not on a person's PC. On Windows 11 it asks the system for the Mica background: the runners accepted the request but drew a solid color, so Mica has not been seen on screen yet. Windows 10 gets a solid background ([rendered sample](docs/ajustes-windows-10-en.png)). It does not use the network and talks to the mod only through standard output, the same JSON lines as on the Mac. Its only file output is a PNG with the developer flag `--print`.
+
+**Not code-signed.** The executable has no digital signature and has not been tested against SmartScreen, Smart App Control or antivirus software. On Windows 11 with Smart App Control on, Windows may refuse to run it, and Smart App Control has no per-app exception. If the window does not open, `/usage-settings` says so and points to `/config`, which has the same options; [INSTALL-WINDOWS.md](INSTALL-WINDOWS.md#troubleshooting) shows how to tell whether Smart App Control is the cause.
+
+To check the shipped executable against the source, install the .NET SDK pinned in [`windows/global.json`](windows/global.json) and run, in PowerShell 7 or in the Windows PowerShell 5.1 that comes with Windows:
+
+```powershell
+pwsh windows/build.ps1
+powershell -ExecutionPolicy Bypass -File windows\build.ps1
+```
+
+The build is deterministic: CI compiles it on two Windows images and compares both with `windows/PainelDeUso.sha256`. In WSL the session runs on Linux: the band works and the options live in `/config`.
+
+On Linux, in WSL, or on macOS before 26, use `/config`. The options are the same.
 
 ## Development
 
@@ -126,6 +149,7 @@ On Windows, Linux or macOS before 26, use `/config`. The options are the same.
 claude plugin validate .
 claude plugin test .
 claude --plugin-dir .
+pwsh windows/build.ps1   # on Windows, with the .NET SDK from windows/global.json (or powershell -File, see above)
 ```
 
 The mascot is drawn frame by frame in [`arte/gerar_mascote.py`](arte/gerar_mascote.py):
@@ -136,7 +160,14 @@ python3 arte/gerar_mascote.py --previa   # also writes arte/previa.html with eve
 python3 arte/gerar_mascote.py --check    # fails if hooks/mascote.ts is out of date
 ```
 
-`tsconfig.json` extends `.claude-plugin/types/tsconfig.json`, which Claude Code writes the first time it loads the mod. On a fresh clone, load the mod once before running `tsc`.
+`tsconfig.json` extends `.claude-plugin/types/tsconfig.json`, which Claude Code writes when it loads the mod from a watched plugin folder. On a fresh clone, write the types once and then run `tsc` (the first command may answer `Not logged in`; the types are written anyway):
+
+```bash
+CLAUDE_CODE_PLUGIN_DIR_WATCH=1 claude --plugin-dir . -p ok
+npx -y -p typescript@5.9.3 tsc -p .
+```
+
+GitHub Actions runs [`ci.yml`](.github/workflows/ci.yml) on every push: validate, test and type-check on Linux, macOS and Windows, check both published hashes and that no file has CRLF line endings, rebuild `PainelDeUso.exe` on two Windows images and compare it with the published hash, talk to the app the way the mod does, and install the mod from PowerShell. [`capturas.yml`](.github/workflows/capturas.yml) runs by hand and produces PNGs of the Windows window in light and dark, English and Portuguese, with the Windows 11 and the Windows 10 path, real screenshots (light, dark, high contrast, keyboard focus), a glyph check of the band's characters in the legacy console and in Windows Terminal (a script prints them; it is not a Claude Code session), and an accessibility scan. The scripts in `windows/ci/` that change system settings refuse to run outside GitHub Actions. In a fork: `gh workflow run capturas.yml`, then download the artifacts with `gh run download`.
 
 Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
