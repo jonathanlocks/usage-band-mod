@@ -2,11 +2,13 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On, RenderPropsOf, SessionStartInput, SessionUsage } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
+import { textos } from './textos'
+
 // Uma sessão de assinatura com os números do exemplo do README.
-function sessao(on: On, assinatura = true) {
-  mock.clock(on, { now: 1_000_000_000 })
+function sessao(on: On, assinatura = true, windows = false) {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
   mock.store(on)
-  mock.env(on, {})
+  mock.env(on, windows ? { OS: 'Windows_NT' } : {})
   on('session.start', async (_$, e) => ({ cwd: e.cwd }))
   on('command.register', async (_$, e) => ({ value: { command: e.name } }))
   on('session.usage', async () => ({
@@ -24,12 +26,15 @@ function sessao(on: On, assinatura = true) {
   }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
   on('session.turns', async () => ({ value: 3 }))
-  on('process.run', async () => ({ value: { exitCode: 0, stdout: '26.6\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  // No Mac, o sw_vers; no Windows, a chave Release do .NET 4.8 no registro.
+  const stdout = windows ? '    Release    REG_DWORD    0x80ea8\r\n' : '26.6\n'
+  on('process.run', async () => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
   // O que o Claude Code desenharia embaixo da banda: nada.
   on('ui.render', async ($, e) => {
     const { Box } = $.ui.resolve(e)
     return <Box key="vazio" />
   })
+  return relogio
 }
 
 async function comecar($: Engine) {
@@ -54,6 +59,30 @@ test('a banda mostra modelo, custo e barras no terminal e no desktop', { options
     expect((await ui.find({ key: 'ajustes' })) !== undefined).toBe(surface === 'desktop')
     await ui.unmount()
   }
+})
+
+test('8. ⚙ no desktop do Windows (com .NET 4.8), não no terminal', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  sessao(on, true, true)
+  await comecar($)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface, component: 'AbovePrompt', props: BANDA(140) })
+    expect(await ui.find({ type: 'Text', text: 'Opus 5.5' })).toBeDefined()
+    expect((await ui.find({ key: 'ajustes' })) !== undefined).toBe(surface === 'desktop')
+    await ui.unmount()
+  }
+})
+
+test('8b. ⚙ no Windows com o exe barrado: o motivo aparece num aviso', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  const relogio = sessao(on, true, true)
+  const avisos: string[] = []
+  on('ui.toast', async (_$, e) => { avisos.push(e.text); return { value: undefined } })
+  // eslint-disable-next-line require-yield
+  on('process.spawn', async function* () { return { deny: 'spawn UNKNOWN' } })
+  await comecar($)
+  const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'desktop', component: 'AbovePrompt', props: BANDA(140) })
+  await ui.press({ key: 'ajustes' })
+  await relogio.settle()
+  expect(avisos).toEqual([textos('pt').janelaBloqueada('usage-band-mod: $.process.spawn: spawn UNKNOWN')])
 })
 
 test('sem assinatura, as barras de 5h e 7d não aparecem', { options: { limitePorModelo: false } }, async ($, on) => {

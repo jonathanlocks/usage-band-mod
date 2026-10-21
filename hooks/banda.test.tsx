@@ -64,7 +64,8 @@ const MODELOS = { modelos: { em: AGORA, lidoEm: AGORA, estado: 'ok', detalhe: ''
 const relatorio: string[] = []
 
 for (const caso of casos) {
-  test(`largura desenhada bate com encaixe, ${caso.nome}`, { options: { idioma: 'pt', limitePorModelo: caso.porModelo } }, async ($, on) => {
+  // 183 larguras por caso: no runner do Windows o primeiro caso passa perto dos 5 s padrão.
+  test(`largura desenhada bate com encaixe, ${caso.nome}`, { options: { idioma: 'pt', limitePorModelo: caso.porModelo }, timeoutMs: 30_000 }, async ($, on) => {
     sessao(on, caso.assinatura, caso.porModelo ? MODELOS : {})
     await comecar($)
     const ordem: string[] = []

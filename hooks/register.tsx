@@ -1,12 +1,12 @@
 // usage-band-mod: banda de uma linha acima do prompt com modelo, custo e barras de contexto,
-// sessão de 5 horas, semana e limite por modelo; no Mac, uma janela de ajustes.
+// sessão de 5 horas, semana e limite por modelo; no Mac e no Windows, uma janela de ajustes.
 // Os números vêm de ./fontes; os desenhos, de ./ui; as preferências, de ./prefs e ./janela.
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Preferencias } from '../types'
 import { VALIDADE_CAMBIO, medir, medirCambio, medirModelos } from './fontes'
-import { abrirJanela, conciliar, emVigor, jaSabeDisponivel, janelaDisponivel } from './janela'
+import { abrirJanela, conciliar, emVigor, jaSabeDisponivel, janelaDisponivel, plataformaDaJanela } from './janela'
 import { deOpcoes } from './prefs'
 import { textos } from './textos'
 import { banda } from './ui'
@@ -43,11 +43,24 @@ async function ocultar($: EngineInterface, valor: boolean): Promise<void> {
   await $.store.set(CHAVE_OCULTA, valor)
 }
 
-async function ajustes($: EngineInterface, opcoes: Preferencias): Promise<{ text: string }> {
+// O que dizer quando a janela não abriu. No Windows, um app que não sobe costuma ser o exe barrado
+// (sem assinatura digital): a mensagem diz isso e aponta o /config.
+async function falha($: EngineInterface, opcoes: Preferencias, detalhe: string): Promise<string> {
   const t = textos((await emVigor($, opcoes)).idioma)
+  if (detalhe === '') return t.janelaIndisponivel
+  return plataformaDaJanela() === 'windows' ? t.janelaBloqueada(detalhe) : t.janelaFalhou(detalhe)
+}
+
+async function ajustes($: EngineInterface, opcoes: Preferencias): Promise<{ text: string }> {
   const r = await abrirJanela($, opcoes)
-  if (r.resultado === 'falhou') return { text: r.detalhe === '' ? t.janelaSoMac : t.janelaFalhou(r.detalhe) }
-  return { text: t.janelaAberta }
+  if (r.resultado === 'falhou') return { text: await falha($, opcoes, r.detalhe) }
+  return { text: textos((await emVigor($, opcoes)).idioma).janelaAberta }
+}
+
+// O ⚙ da banda não tem onde responder como um comando: se a janela não abrir, o motivo vai num aviso.
+async function ajustesPeloBotao($: EngineInterface, opcoes: Preferencias): Promise<void> {
+  const r = await abrirJanela($, opcoes)
+  if (r.resultado === 'falhou') $.ui.toast(await falha($, opcoes, r.detalhe), { timeoutMs: 12_000 })
 }
 
 async function alternarBanda($: EngineInterface, opcoes: Preferencias): Promise<{ text: string }> {
@@ -113,7 +126,7 @@ export const register: Register = (on, options) => {
     const outros = await next(e)
     return banda(ui, e.surface, e.props.bodyColumns, c, {
       ocultar: () => ocultar($, true),
-      ajustes: e.surface === 'desktop' && jaSabeDisponivel() ? () => abrirJanela($, opcoes) : undefined,
+      ajustes: e.surface === 'desktop' && jaSabeDisponivel() ? () => ajustesPeloBotao($, opcoes) : undefined,
     }, outros)
   })
 }

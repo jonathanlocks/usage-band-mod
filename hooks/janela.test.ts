@@ -1,16 +1,25 @@
-// Verificação das correções da janela: clique duplo, prazo, desfazer recusa, gravação retomável.
+// Verificação das correções da janela: clique duplo, prazo, desfazer recusa, gravação retomável,
+// e qual janela abre em cada sistema (Mac, Windows com e sem .NET 4.8, Linux).
 import { expect, mock, test } from 'claude-code/testing'
 import type { On, ProcessSpawnChunk, ProcessSpawnResult, SessionStartInput, SessionUsage } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
-type Fila = { push: (t: string) => void; fim: () => void }
+import { textos } from './textos'
 
-function base(on: On, loja: Map<string, unknown>, sets: { key: string; value: unknown }[], negar: Set<string> = new Set()) {
+type Fila = { push: (t: string) => void; fim: () => void }
+type Rodar = { exitCode: number; stdout: string } | 'lança'
+// O sistema simulado: variáveis de ambiente e o que o process.run devolve (por padrão, um macOS 26.6).
+type Sistema = { env?: Record<string, string>; run?: Rodar }
+
+const MAC: Sistema = { env: {}, run: { exitCode: 0, stdout: '26.6\n' } }
+const WINDOWS: Sistema = { env: { OS: 'Windows_NT' }, run: { exitCode: 0, stdout: '\r\nHKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full\r\n    Release    REG_DWORD    0x80ea8\r\n\r\n' } }
+
+function base(on: On, loja: Map<string, unknown>, sets: { key: string; value: unknown }[], negar: Set<string> = new Set(), sistema: Sistema = MAC) {
   on('store.get', async (_$, e) => ({ value: loja.get(e.key) }))
   on('store.set', async (_$, e) => { loja.set(e.key, e.value); return { value: undefined } })
   on('store.delete', async (_$, e) => { loja.delete(e.key); return { value: undefined } })
   on('store.keys', async () => ({ value: [...loja.keys()] }))
-  mock.env(on, {})
+  mock.env(on, sistema.env ?? {})
   on('config.set', async (_$, e) => {
     sets.push({ key: e.key, value: e.value })
     if (negar.has(e.key)) return { deny: 'não' }
@@ -24,15 +33,20 @@ function base(on: On, loja: Map<string, unknown>, sets: { key: string; value: un
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
   on('session.turns', async () => ({ value: 1 }))
   on('http.fetch', async () => ({ value: { status: 503, ok: false, headers: {}, text: '' } }))
-  on('process.run', async () => ({ value: { exitCode: 0, stdout: '26.6\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  const run = sistema.run ?? { exitCode: 0, stdout: '26.6\n' }
+  on('process.run', async () => {
+    if (run === 'lança') throw new Error('ENOENT: /usr/bin/sw_vers')
+    return { value: { ...run, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
 }
 
-// Um app falso: o teste empurra linhas; conta quantos foram abertos.
-function app(on: On, contador: { n: number }): Fila {
+// Um app falso: o teste empurra linhas; conta quantos foram abertos e guarda o último argv.
+function app(on: On, contador: { n: number; argv?: readonly string[] }): Fila {
   const fila: (string | null)[] = []
   let acordar: (() => void) | null = null
-  on('process.spawn', async function* (): AsyncGenerator<ProcessSpawnChunk, { value: ProcessSpawnResult }> {
+  on('process.spawn', async function* (_$, e): AsyncGenerator<ProcessSpawnChunk, { value: ProcessSpawnResult }> {
     contador.n++
+    contador.argv = e.argv
     for (;;) {
       while (fila.length === 0) await new Promise<void>(r => (acordar = r))
       const t = fila.shift()
@@ -183,4 +197,98 @@ test('4e. depois de gravar tudo sem recarga, o pedido fica no store?', { options
   await relogio.settle()
   expect(sets.length).toBe(1)
   expect(loja.has('ajuste')).toBe(true) // fica até a próxima carga
+})
+
+test('5. Windows com .NET 4.8: abre windows\\PainelDeUso.exe', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets, new Set(), WINDOWS)
+  const c: { n: number; argv?: readonly string[] } = { n: 0 }; const f = app(on, c)
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  // O app do Windows termina as linhas com \r\n se alguém mudar o NewLine: continua valendo.
+  f.push('{"pronto":true}\r\n')
+  expect((await a).text).toBe('Janela de ajustes aberta.')
+  expect(c.n).toBe(1)
+  const argv = c.argv ?? []
+  expect(argv[0]).toMatch(/[\\/]windows[\\/]PainelDeUso\.exe$/)
+  expect(argv[1]).toBe('--estado')
+  expect((JSON.parse(argv[2] ?? '{}') as { prefs: { idioma: string } }).prefs.idioma).toBe('pt')
+  f.fim(); await relogio.settle()
+})
+
+test('6. Windows sem .NET 4.8: falha com a mensagem de indisponível', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets, new Set(), { env: { OS: 'Windows_NT' }, run: { exitCode: 1, stdout: '' } })
+  const c = { n: 0 }; app(on, c)
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  expect((await a).text).toBe(textos('pt').janelaIndisponivel)
+  expect(c.n).toBe(0)
+})
+
+test('7. Linux: sem OS e sem sw_vers, a janela não existe', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets, new Set(), { env: {}, run: 'lança' })
+  const c = { n: 0 }; app(on, c)
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  expect((await a).text).toBe(textos('pt').janelaIndisponivel)
+  expect(c.n).toBe(0)
+})
+
+// Um exe barrado (Smart App Control, antivírus) faz o spawn falhar antes de qualquer linha.
+// No kit, uma falha de spawn se simula com { deny }: o fluxo de quem chamou é rejeitado.
+function barrado(on: On, contador: { n: number }, erro = 'spawn UNKNOWN') {
+  // eslint-disable-next-line require-yield
+  on('process.spawn', async function* () {
+    contador.n++
+    return { deny: erro }
+  })
+}
+
+test('9. Windows com o exe barrado: diz que pode ser o Smart App Control e aponta o /config', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets, new Set(), WINDOWS)
+  const c = { n: 0 }; barrado(on, c)
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  const texto = (await a).text
+  expect(texto).toBe(textos('pt').janelaBloqueada('usage-band-mod: $.process.spawn: spawn UNKNOWN'))
+  expect(texto).toMatch(/Controle Inteligente de Aplicativos/)
+  expect(texto).toMatch(/\/config/)
+  // A trava soltou: um novo pedido tenta de novo.
+  const b = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  await b
+  expect(c.n).toBe(2)
+})
+
+test('9b. Windows, app que fecha antes do pronto: a mesma mensagem, com o motivo', { options: { ...OPC, idioma: 'en' } }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets, new Set(), WINDOWS)
+  const f = app(on, { n: 0 })
+  await comecar($)
+  const a = $.command.run({ command: 'usage-settings' } as never)
+  await relogio.settle(); f.fim()
+  expect((await a).text).toBe(textos('en').janelaBloqueada('o app fechou antes de abrir a janela'))
+})
+
+test('9c. Mac, app barrado: a mensagem de sempre, sem falar de Windows', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const loja = new Map<string, unknown>(); const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets)
+  barrado(on, { n: 0 }, 'spawn EACCES')
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle()
+  expect((await a).text).toBe(textos('pt').janelaFalhou('usage-band-mod: $.process.spawn: spawn EACCES'))
 })

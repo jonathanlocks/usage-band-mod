@@ -1,4 +1,5 @@
-// Janela de ajustes do Mac: um app SwiftUI (macos/) que o mod abre e escuta.
+// Janela de ajustes: no Mac um app SwiftUI (macos/), no Windows um app WPF (windows/), que o mod
+// abre e escuta. Os dois falam o mesmo protocolo.
 // Conversa por linhas JSON: o app escreve {"pronto": true} ao aparecer, {"prefs": {...}} a cada
 // mudança e {"fim": true} ao fechar. As mudanças valem na hora (átomo `ajuste`); ao fechar, vão
 // para o userConfig por $.config.set, para que o menu /config e as próximas sessões vejam o mesmo.
@@ -16,13 +17,30 @@ const cambio = atom({ plugin: 'usage-band-mod', key: 'cambio' } as const, null)
 const CHAVE_AJUSTE = 'ajuste'
 const CAMPOS = ['idioma', 'moeda', 'mascote', 'limitePorModelo'] as const
 
-export const caminhoDoApp = (raiz: string): string =>
-  `${raiz.replace(/\/\.claude-plugin\/?$/, '').replace(/\/$/, '')}/macos/PainelDeUso.app/Contents/MacOS/PainelDeUso`
+// Onde a janela mora em cada sistema.
+export type Plataforma = 'macos' | 'windows'
+
+// No Windows a raiz pode vir com `\` ou `/`: o caminho do exe usa o mesmo separador que ela.
+export function caminhoDoApp(raiz: string, p: Plataforma = 'macos'): string {
+  const pasta = raiz.replace(/[\\/]\.claude-plugin[\\/]?$/, '').replace(/[\\/]$/, '')
+  if (p === 'windows') {
+    const sep = pasta.includes('\\') ? '\\' : '/'
+    return [pasta, 'windows', 'PainelDeUso.exe'].join(sep)
+  }
+  return `${pasta}/macos/PainelDeUso.app/Contents/MacOS/PainelDeUso`
+}
+
+// Saída de `reg.exe query ...\NDP\v4\Full /v Release`: tem .NET Framework 4.8 (528040) ou mais novo?
+export function temDotNet48(saidaDoReg: string): boolean {
+  const m = /\bRelease\s+REG_DWORD\s+0x([0-9a-f]+)/i.exec(saidaDoReg)
+  return m !== null && parseInt(m[1] ?? '', 16) >= 528040
+}
 
 // Uma linha do app: só aceita preferências válidas; o resto é ignorado.
 export function lerLinha(linha: string, base: Preferencias): { prefs?: Preferencias; fim?: true; pronto?: true } {
   try {
-    const o = JSON.parse(linha) as Record<string, unknown>
+    // trim: no Windows a linha pode chegar com um \r sobrando.
+    const o = JSON.parse(linha.trim()) as Record<string, unknown>
     if (o.pronto === true) return { pronto: true }
     if (o.fim === true) return { fim: true }
     if (typeof o.prefs === 'object' && o.prefs !== null) return { prefs: preferencias(o.prefs, base) }
@@ -111,14 +129,25 @@ async function gravar($: EngineInterface, prefs: Preferencias, opcoes: Preferenc
   await aplicar($, p, opcoes)
 }
 
-// A janela precisa do macOS 26. Descoberto uma vez por carga: o ⚙ da banda só aparece com ela.
+// A janela precisa do macOS 26, ou do Windows com .NET Framework 4.8. Descoberto uma vez por carga:
+// o ⚙ da banda só aparece com ela. A API não diz o sistema; a variável OS é fixa no Windows.
+let plataforma: Plataforma = 'macos'
 let disponivel: boolean | null = null
 
 export async function janelaDisponivel($: EngineInterface): Promise<boolean> {
   if (disponivel !== null) return disponivel
   try {
-    const r = await $.process.run(['/usr/bin/sw_vers', '-productVersion'], { timeoutMs: 5_000 })
-    disponivel = r.exitCode === 0 && Number(r.stdout.trim().split('.')[0]) >= 26
+    if ((await $.env.get('OS')) === 'Windows_NT') {
+      plataforma = 'windows'
+      const r = await $.process.run(
+        ['reg.exe', 'query', 'HKLM\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full', '/v', 'Release'],
+        { timeoutMs: 5_000 },
+      )
+      disponivel = r.exitCode === 0 && temDotNet48(r.stdout)
+    } else {
+      const r = await $.process.run(['/usr/bin/sw_vers', '-productVersion'], { timeoutMs: 5_000 })
+      disponivel = r.exitCode === 0 && Number(r.stdout.trim().split('.')[0]) >= 26
+    }
   } catch {
     disponivel = false
   }
@@ -126,6 +155,7 @@ export async function janelaDisponivel($: EngineInterface): Promise<boolean> {
 }
 
 export const jaSabeDisponivel = (): boolean => disponivel === true
+export const plataformaDaJanela = (): Plataforma => plataforma
 
 let aberta = false
 
@@ -165,7 +195,7 @@ async function abrir($: EngineInterface, opcoes: Preferencias): Promise<{ result
     porModelo: (m?.limites ?? []).map(x => ({ modelo: x.modelo, pct: x.pct ?? 0 })),
     taxas: c?.taxas ?? {},
   }
-  const argv = [caminhoDoApp($.plugin.root), '--estado', JSON.stringify({ prefs, amostra })]
+  const argv = [caminhoDoApp($.plugin.root, plataforma), '--estado', JSON.stringify({ prefs, amostra })]
   const iterador = $.process.spawn({ argv })[Symbol.asyncIterator]()
 
   let resto = ''

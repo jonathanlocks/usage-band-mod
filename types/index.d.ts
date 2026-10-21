@@ -38,7 +38,7 @@ declare module 'claude-code' {
       oculta: boolean
       modelos: LeituraModelos | null
       cambio: Cambio | null
-      // Preferências que a janela do Mac mudou e ainda não foram gravadas no userConfig.
+      // Preferências que a janela de ajustes mudou e ainda não foram gravadas no userConfig.
       ajuste: Preferencias | null
       relogio: number
     }

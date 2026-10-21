@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { caminhoDoApp, lerLinha, situacao } from './janela'
+import { caminhoDoApp, lerLinha, situacao, temDotNet48 } from './janela'
 import { PADRAO, iguais, preferencias } from './prefs'
 
 test('preferências inválidas caem no padrão, campo a campo', () => {
@@ -22,6 +22,24 @@ test('linhas da janela: preferências, fim, e o resto ignorado', () => {
 test('o app fica em macos/ dentro da pasta do plugin', () => {
   expect(caminhoDoApp('/x/usage-band-mod')).toBe('/x/usage-band-mod/macos/PainelDeUso.app/Contents/MacOS/PainelDeUso')
   expect(caminhoDoApp('/x/usage-band-mod/.claude-plugin')).toBe('/x/usage-band-mod/macos/PainelDeUso.app/Contents/MacOS/PainelDeUso')
+})
+
+test('o app fica em windows/ no Windows, com o separador da raiz', () => {
+  expect(caminhoDoApp('C:\\Users\\ana\\.claude\\plugins\\cache\\usage-band-mod', 'windows')).toBe('C:\\Users\\ana\\.claude\\plugins\\cache\\usage-band-mod\\windows\\PainelDeUso.exe')
+  expect(caminhoDoApp('C:\\x\\usage-band-mod\\.claude-plugin', 'windows')).toBe('C:\\x\\usage-band-mod\\windows\\PainelDeUso.exe')
+  expect(caminhoDoApp('C:/x/usage-band-mod/', 'windows')).toBe('C:/x/usage-band-mod/windows/PainelDeUso.exe')
+})
+
+test('.NET 4.8 pela chave Release do registro', () => {
+  expect(temDotNet48('\r\nHKEY_LOCAL_MACHINE\\...\\Full\r\n    Release    REG_DWORD    0x80ea8\r\n\r\n')).toBe(true) // 528040
+  expect(temDotNet48('    Release    REG_DWORD    0x82348')).toBe(true) // 4.8.1
+  expect(temDotNet48('    Release    REG_DWORD    0x70bf0')).toBe(false) // 4.7.2
+  expect(temDotNet48('ERROR: The system was unable to find the specified registry key or value.')).toBe(false)
+})
+
+test('linha com \\r do Windows é lida', () => {
+  expect(lerLinha('{"pronto":true}\r', PADRAO)).toEqual({ pronto: true })
+  expect(lerLinha('{"prefs":{"moeda":"EUR"}}\r', PADRAO)).toEqual({ prefs: { ...PADRAO, moeda: 'EUR' } })
 })
 
 test('gravação retomada: conclui, continua ou cede ao /config', () => {
