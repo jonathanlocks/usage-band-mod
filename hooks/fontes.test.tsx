@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { HttpResponse, On, RenderPropsOf, SessionStartInput, SessionUsage } from 'claude-code'
 
-import { ESPERAS, INTERVALO_CAMBIO, INTERVALO_MODELOS, cambioValido, lerCambio, lerModelos, medirCambio, modelosValidos, proximaTentativa } from './fontes'
+import { ESPERAS, INTERVALO_CAMBIO, INTERVALO_MODELOS, cambioValido, lerCambio, lerModelos, modelosValidos, proximaTentativa } from './fontes'
 
 test('lerModelos pega só as janelas semanais por modelo', () => {
   const corpo = JSON.stringify({

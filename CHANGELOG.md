@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1 (2026-10-22)
+
+- Loads in the Claude desktop app again. The app runs conversations on its own bundled Claude Code engine, which can lag behind the `claude` CLI; engine 2.1.295 refused the whole hooks module because `register.tsx` passed `$` to functions imported from `./fontes` and `./janela` (`$ is followed only into a function declared in this same file, never across an import`), so no band and no `/usage-band` command. Every function that calls `$` now lives in `register.tsx`; `fontes.ts` and `janela.ts` keep only the pure parts. Same behavior on newer engines. Reported by the first Windows user; it was not specific to Windows.
+- CI also validates and tests the mod on engine 2.1.295.
+
 ## 0.4.0 (2026-10-21)
 
 - Terminal look: the mascot is a whole one-line Clawd face (arms at mid height, an orange body and two black eyes, 5 columns) instead of the top row of the Claude Code logo, which read as cut off. Bars are painted cells, the level color on a track in the theme's subtle gray, without the `░` texture; use above 0% fills at least one cell and use below 100% leaves at least one empty; with no reading the bar is a dim dotted line, not an empty track. Each percentage sits right after its bar. The band is left-aligned with a one-column margin, like the rest of Claude Code, with more room between segments and a dim `×` that inverts under the pointer. `↻` only marks reset times, so the context reads `112k/200k` (also on the desktop). In 0.3.0 the centered line could lose a character at some widths (for example `Fable 2` for `Fable 2%`, `↻ 4d 0` for `↻ 4d 0h`); the left-aligned line, with its margin counted, fits every width from 10 to 220 columns.

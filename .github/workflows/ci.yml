@@ -31,6 +31,13 @@ jobs:
       - run: claude --version
       - run: claude plugin validate --strict .
       - run: claude plugin test .
+      # O app desktop traz o próprio motor, que pode estar atrás do CLI: o 2.1.295 recusa o módulo
+      # quando $ é passado a uma função importada de outro arquivo. Validar e testar nele segura isso.
+      - name: Validate and test on engine 2.1.295 (Claude desktop app)
+        shell: bash
+        run: |
+          npx -y @anthropic-ai/claude-code@2.1.295 plugin validate --strict .
+          npx -y @anthropic-ai/claude-code@2.1.295 plugin test .
       # O Claude Code só grava .claude-plugin/types/ (que o tsconfig estende) quando vigia a pasta do
       # plugin; sem login ele para em "Not logged in", mas os tipos já ficaram gravados.
       - name: Lay the plugin types (no login needed; "Not logged in" is expected)
