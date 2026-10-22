@@ -1,5 +1,5 @@
 // Chamadas ao Windows que o WPF não tem: barra de título escura e Mica (dwmapi), e trazer a janela
-// para a frente (user32). Nenhuma lança: um HRESULT diferente de 0 vira "não deu", e a janela segue
+// para a frente (user32 e kernel32). Nenhuma lança: um HRESULT diferente de 0 vira "não deu", e a janela segue
 // com o fundo sólido.
 using System;
 using System.Runtime.InteropServices;
@@ -29,7 +29,24 @@ namespace PainelDeUso
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SetForegroundWindow(IntPtr hwnd);
+        private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hwnd, IntPtr pid);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool AttachThreadInput(uint deste, uint daquele, [MarshalAs(UnmanagedType.Bool)] bool ligar);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool BringWindowToTop(IntPtr hwnd);
 
         private static int Atributo(IntPtr hwnd, int atributo, int valor)
         {
@@ -65,6 +82,30 @@ namespace PainelDeUso
                 ? Atributo(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, DWMSBT_MAINWINDOW)
                 : Atributo(hwnd, DWMWA_MICA_EFFECT, 1);
             return hr == 0;
+        }
+
+        // Pede o primeiro plano. O Windows só o dá a quem foi aberto pelo processo da frente ou recebeu a
+        // última entrada; no app do Claude, o exe nasce de um processo de fundo (app → claude.exe → worker
+        // → exe) e o pedido é negado em silêncio. Ligado por um instante à fila de entrada da janela da
+        // frente, o pedido passa. Devolve se a janela ficou na frente.
+        public static bool TrazerParaFrente(IntPtr hwnd)
+        {
+            if (SetForegroundWindow(hwnd) && GetForegroundWindow() == hwnd) return true;
+            IntPtr frente = GetForegroundWindow();
+            uint daFrente = frente == IntPtr.Zero ? 0 : GetWindowThreadProcessId(frente, IntPtr.Zero);
+            uint deste = GetCurrentThreadId();
+            if (daFrente == 0 || daFrente == deste) return false;
+            bool ligou = AttachThreadInput(deste, daFrente, true);
+            try
+            {
+                BringWindowToTop(hwnd);
+                SetForegroundWindow(hwnd);
+            }
+            finally
+            {
+                if (ligou) AttachThreadInput(deste, daFrente, false);
+            }
+            return GetForegroundWindow() == hwnd;
         }
 
         // Desliga a Mica (alto contraste ligado com a janela aberta).

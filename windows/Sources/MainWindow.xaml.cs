@@ -66,8 +66,12 @@ namespace PainelDeUso
             if (avisouPronto) return;
             avisouPronto = true;
             Saida.Pronto();
+            // Por cima das outras janelas mesmo quando o Windows nega o primeiro plano: ligar e desligar o
+            // Topmost deixa a janela no topo das que não são "sempre visíveis". Depois, o pedido de foco.
+            Topmost = true;
+            Topmost = false;
             Activate();
-            Nativo.SetForegroundWindow(hwnd);
+            Nativo.TrazerParaFrente(hwnd);
         }
 
         private void Tecla(object sender, KeyEventArgs e)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.2 (2026-10-22)
+
+- Windows: the settings window opens in front of Claude. The app is started by a background process (desktop app → `claude.exe` → hooks worker → `PainelDeUso.exe`), and Windows refuses the foreground to such a process, so the window opened behind the Claude window and the ⚙ or `/usage-settings` seemed to do nothing. The window now lifts itself above other windows (Topmost on and off) and then asks for the foreground through the input queue of the window in front. Reported by the first Windows user.
+- CI checks it: a stand-in "Claude" window takes the foreground and the input, another process opens the app, and the settings window has to end up on top. On a Windows Server 2022 runner the 0.4.1 app opened behind in this test and the 0.4.2 app opened in front with the focus.
+
 ## 0.4.1 (2026-10-22)
 
 - Loads in the Claude desktop app again. The app runs conversations on its own bundled Claude Code engine, which can lag behind the `claude` CLI; engine 2.1.295 refused the whole hooks module because `register.tsx` passed `$` to functions imported from `./fontes` and `./janela` (`$ is followed only into a function declared in this same file, never across an import`), so no band and no `/usage-band` command. Every function that calls `$` now lives in `register.tsx`; `fontes.ts` and `janela.ts` keep only the pure parts. Same behavior on newer engines. Reported by the first Windows user; it was not specific to Windows.

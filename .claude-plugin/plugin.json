@@ -1,6 +1,6 @@
 {
   "name": "usage-band-mod",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "A one-line band above the prompt with model, cost and bars for context, the 5-hour session, the week and per-model limits, plus a native settings window on macOS (and a preview of one on Windows).",
   "author": {
     "name": "Jonathan Locks",

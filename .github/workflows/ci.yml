@@ -74,7 +74,7 @@ jobs:
           $env:GITHUB_ACTIONS = ''
           $casos = @{
             'captura-tela' = @{}; 'protocolo' = @{ Exe = 'x' }; 'a11y' = @{ Exe = 'x'; Estado = 'x'; Saida = 'x' }
-            'instalar-plugin' = @{}; 'instalar-claude' = @{}
+            'instalar-plugin' = @{}; 'instalar-claude' = @{}; 'frente' = @{ Exe = 'x' }
             'terminal-portatil' = @{ Versao = 'x'; Sha256X64 = 'x'; Sha256Arm64 = 'x'; Destino = 'x' }
           }
           $falhou = $false
@@ -115,6 +115,10 @@ jobs:
       - name: Protocol with the mod (argv, stdout, keyboard)
         shell: powershell
         run: ./windows/ci/protocolo.ps1 -Exe windows/PainelDeUso.exe -Saida protocolo.txt
+      # No app do Claude o exe nasce de um processo de fundo, e o Windows lhe nega o primeiro plano.
+      - name: Opens in front of the app that asked for it
+        shell: powershell
+        run: ./windows/ci/frente.ps1 -Exe windows/PainelDeUso.exe
       - name: Hash of what was built
         if: always()
         shell: pwsh

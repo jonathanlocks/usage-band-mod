@@ -30,7 +30,7 @@
 
 ---
 
-**Status:** early release (0.4.1), maintained by one person. Tested on macOS 26.6 with Claude Code 2.1.302, in the terminal and in the desktop app; the mod also loads on engine 2.1.295, which some desktop app installs still bundle (CI checks it). The Windows settings window is a preview: on GitHub Actions runners (Windows Server 2022 and 2025 on x64, Windows 11 25H2 on ARM64) it was built, opened, driven by UI Automation and the keyboard, and checked by screenshot, but no person has used it yet. On Windows, the first user saw the mod load in the `claude` CLI on Windows 11; the band on screen and opening the window from a Claude Code session have not been confirmed there yet (CI has no login). The settings window needs macOS 26 or Windows 10/11 with .NET Framework 4.8.
+**Status:** early release (0.4.2), maintained by one person. Tested on macOS 26.6 with Claude Code 2.1.302, in the terminal and in the desktop app; the mod also loads on engine 2.1.295, which some desktop app installs still bundle (CI checks it). The Windows settings window is a preview: on GitHub Actions runners (Windows Server 2022 and 2025 on x64, Windows 11 25H2 on ARM64) it was built, opened, driven by UI Automation and the keyboard, and checked by screenshot, but no person has used it yet. On Windows, the first user saw the mod load in the `claude` CLI on Windows 11; the band on screen and opening the window from a Claude Code session have not been confirmed there yet (CI has no login). The settings window needs macOS 26 or Windows 10/11 with .NET Framework 4.8.
 
 ## What it shows
 
