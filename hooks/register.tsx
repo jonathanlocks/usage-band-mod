@@ -37,6 +37,7 @@ const cambio = atom({ plugin: 'usage-band-mod', key: 'cambio' } as const, null)
 const ajuste = atom({ plugin: 'usage-band-mod', key: 'ajuste' } as const, null)
 const oculta = atom({ plugin: 'usage-band-mod', key: 'oculta' } as const, false)
 const relogio = atom({ plugin: 'usage-band-mod', key: 'relogio' } as const, 0)
+const sistema = atom({ plugin: 'usage-band-mod', key: 'sistema' } as const, null)
 const CHAVE_OCULTA = 'oculta'
 
 async function silencioDeRede($: EngineInterface): Promise<boolean> {
@@ -204,36 +205,38 @@ async function gravar($: EngineInterface, prefs: Preferencias, opcoes: Preferenc
   await aplicar($, p, opcoes)
 }
 
-// A janela precisa do macOS 26, ou do Windows com .NET Framework 4.8. Descoberto uma vez por carga:
-// o ⚙ da banda só aparece com ela. A API não diz o sistema; a variável OS é fixa no Windows.
-let plataforma: Plataforma = 'macos'
-let disponivel: boolean | null = null
+// A janela precisa do macOS 26, ou do Windows com .NET Framework 4.8. Descoberto uma vez por sessão e
+// guardado no átomo `sistema`: a banda o lê, e o ⚙ aparece assim que a resposta chega. A API não diz
+// o sistema; a variável OS é fixa no Windows.
+type Sistema = { plataforma: Plataforma; disponivel: boolean }
 
-async function janelaDisponivel($: EngineInterface): Promise<boolean> {
-  if (disponivel !== null) return disponivel
+async function sistemaDaJanela($: EngineInterface): Promise<Sistema> {
+  const salvo = await read($, sistema)
+  if (salvo !== null) return salvo
+  let s: Sistema = { plataforma: 'macos', disponivel: false }
   try {
     if ((await $.env.get('OS')) === 'Windows_NT') {
-      plataforma = 'windows'
+      s = { plataforma: 'windows', disponivel: false }
       const r = await $.process.run(
         ['reg.exe', 'query', 'HKLM\\SOFTWARE\\Microsoft\\NET Framework Setup\\NDP\\v4\\Full', '/v', 'Release'],
         { timeoutMs: 5_000 },
       )
-      disponivel = r.exitCode === 0 && temDotNet48(r.stdout)
+      s.disponivel = r.exitCode === 0 && temDotNet48(r.stdout)
     } else {
       const r = await $.process.run(['/usr/bin/sw_vers', '-productVersion'], { timeoutMs: 5_000 })
-      disponivel = r.exitCode === 0 && Number(r.stdout.trim().split('.')[0]) >= 26
+      s.disponivel = r.exitCode === 0 && Number(r.stdout.trim().split('.')[0]) >= 26
     }
   } catch {
-    disponivel = false
+    // Sem resposta do sistema: a janela não é oferecida.
   }
-  return disponivel
+  await update($, sistema, () => s)
+  return s
 }
 
-// Descobre se a janela existe e redesenha a banda: o ⚙ aparece assim que o sistema responde, sem
-// esperar o tique do minuto.
-async function oferecerJanela($: EngineInterface): Promise<void> {
+// No início da sessão, sem segurá-la: descobre a janela em segundo plano.
+async function descobrirJanela($: EngineInterface): Promise<void> {
   try {
-    if (await janelaDisponivel($)) await update($, relogio, n => (n ?? 0) + 1)
+    await sistemaDaJanela($)
   } catch {
     // A sessão acabou (ou o mod recarregou) antes da resposta: não há banda para redesenhar.
   }
@@ -255,13 +258,14 @@ async function abrirJanela($: EngineInterface, opcoes: Preferencias): Promise<{ 
 }
 
 async function abrir($: EngineInterface, opcoes: Preferencias): Promise<{ resultado: Abertura; detalhe: string }> {
-  if (!(await janelaDisponivel($))) {
+  const s = await sistemaDaJanela($)
+  if (!s.disponivel) {
     aberta = false
     return { resultado: 'falhou', detalhe: '' }
   }
   const prefs = await emVigor($, opcoes)
   const estado = { prefs, amostra: amostra(await read($, leitura), await read($, modelos), await read($, cambio)) }
-  const argv = [caminhoDoApp($.plugin.root, plataforma), '--estado', JSON.stringify(estado)]
+  const argv = [caminhoDoApp($.plugin.root, s.plataforma), '--estado', JSON.stringify(estado)]
   const iterador = $.process.spawn({ argv })
 
   let resto = ''
@@ -358,7 +362,7 @@ async function ocultar($: EngineInterface, valor: boolean): Promise<void> {
 async function falha($: EngineInterface, opcoes: Preferencias, detalhe: string): Promise<string> {
   const t = textos((await emVigor($, opcoes)).idioma)
   if (detalhe === '') return t.janelaIndisponivel
-  return plataforma === 'windows' ? t.janelaBloqueada(detalhe) : t.janelaFalhou(detalhe)
+  return (await sistemaDaJanela($)).plataforma === 'windows' ? t.janelaBloqueada(detalhe) : t.janelaFalhou(detalhe)
 }
 
 async function ajustes($: EngineInterface, opcoes: Preferencias): Promise<{ text: string }> {
@@ -395,7 +399,7 @@ async function iniciar($: EngineInterface, opcoes: Preferencias): Promise<void> 
   if ((await $.store.get(CHAVE_OCULTA)) === true) await update($, oculta, () => true)
   await medir($)
   await buscar($, opcoes)
-  void oferecerJanela($)
+  void descobrirJanela($)
 }
 
 // A cada minuto: os relógios de "reinicia em" andam, e as fontes conferem se já é hora de ler.
@@ -431,11 +435,12 @@ export const register: Register = (on, options) => {
     const c = await contexto($, opcoes)
     if (e.props.hasSurvey || c === null || (await read($, oculta))) return next(e)
     await read($, relogio)
+    const s = await read($, sistema)
     const ui = $.ui.resolve(e)
     const outros = await next(e)
     return banda(ui, e.surface, e.props.bodyColumns, c, {
       ocultar: () => ocultar($, true),
-      ajustes: e.surface === 'desktop' && disponivel === true ? () => ajustesPeloBotao($, opcoes) : undefined,
+      ajustes: e.surface === 'desktop' && s?.disponivel === true ? () => ajustesPeloBotao($, opcoes) : undefined,
     }, outros)
   })
 }

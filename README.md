@@ -30,7 +30,7 @@
 
 ---
 
-**Status:** early release (0.4.3), maintained by one person. Tested on macOS 26.6 with Claude Code 2.1.302, in the terminal and in the desktop app; the mod also loads on engine 2.1.295, which some desktop app installs still bundle (CI checks it). On Windows, the first user (Windows 11, x64) ran it in the desktop app and in the `claude` CLI: the band showed up, and the settings window opened, but behind the Claude window; 0.4.2 fixes that, and the fix has been checked on CI runners, not yet on that PC. The settings window needs macOS 26 or Windows 10/11 with .NET Framework 4.8.
+**Status:** early release (0.4.4), maintained by one person. In daily use on macOS 26.6, in the terminal and in the desktop app. On 2026-10-22, a clean install from GitHub loaded on Claude Code 2.1.295 (which some desktop apps still bundle), 2.1.299, 2.1.304 and 2.1.306, and CI checks the oldest and the newest on every push. On Windows, the first user (Windows 11, x64) ran it in the desktop app and in the `claude` CLI: the band showed up, and the settings window opened, but behind the Claude window; 0.4.2 fixes that. The fix and the window were checked on Windows Server 2022 and 2025 and Windows 11 ARM runners, not yet on that PC. The settings window needs macOS 26 or Windows 10/11 with .NET Framework 4.8.
 
 ## What it shows
 

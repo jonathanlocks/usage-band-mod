@@ -41,6 +41,8 @@ declare module 'claude-code' {
       // Preferências que a janela de ajustes mudou e ainda não foram gravadas no userConfig.
       ajuste: Preferencias | null
       relogio: number
+      // Onde roda e se a janela de ajustes existe nele: descoberto uma vez por sessão; o ⚙ só aparece com ela.
+      sistema: { plataforma: 'macos' | 'windows'; disponivel: boolean } | null
     }
   }
 }

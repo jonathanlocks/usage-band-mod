@@ -13,6 +13,8 @@ test('lerModelos pega só as janelas semanais por modelo', () => {
     limits: [
       { kind: 'session', percent: 12 },
       { kind: 'weekly_all', percent: 30, resets_at: 1791763200 },
+      // Outra janela com modelo, mas não semanal: fica de fora.
+      { kind: 'five_hour_scoped', percent: 9, scope: { model: { display_name: 'Opus' } } },
       { kind: 'weekly_scoped', percent: 61.5, resets_at: 1791763200, scope: { model: { display_name: 'Fable' } } },
       { kind: 'weekly_scoped', percent: 5, resets_at: '2026-10-15T12:00:00Z', scope: { surface: { display_name: 'Cowork' } } },
     ],
@@ -70,6 +72,11 @@ test('sem rede e sem cache, o câmbio não é pedido a cada minuto', { options: 
   expect(rede.chamadas).toBe(1)
   await relogio.advance(ESPERAS[0] ?? 0)
   expect(rede.chamadas).toBe(2)
+  // A espera cresce: depois da segunda falha, a terceira tentativa espera ESPERAS[1], não ESPERAS[0].
+  await relogio.advance(ESPERAS[0] ?? 0)
+  expect(rede.chamadas).toBe(2)
+  await relogio.advance((ESPERAS[1] ?? 0) - (ESPERAS[0] ?? 0))
+  expect(rede.chamadas).toBe(3)
 })
 
 test('em dólar, nada sai para a rede', { options: { moeda: 'USD', limitePorModelo: false } }, async ($, on) => {
@@ -131,6 +138,25 @@ test('a falha da própria sessão não esconde o limite por modelo que outra ses
   const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA })
   expect(await ui.find({ type: 'Text', text: /Fable/ })).toBeDefined()
   expect(rede.chamadas).toBe(1)
+})
+
+test('uma falha nova guarda o motivo e não apaga os últimos números do limite por modelo', { options: { moeda: 'USD', limitePorModelo: true } }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  const d = disco(on)
+  const velha = 1_000_000_000 - INTERVALO_MODELOS - 1
+  const limites = [{ modelo: 'Fable', pct: 13, reinicia: null }]
+  d.modelos = { em: velha, lidoEm: velha, estado: 'ok', detalhe: '', limites }
+  mock.env(on, {})
+  const rede = { chamadas: 0, status: 503 }
+  sessao(on, rede)
+  on('session.authorize', async () => ({ value: { handle: 'h', kind: 'bearer' } }))
+  await $.session.start({ cwd: '/tmp', surface: null, isInteractive: true } as unknown as SessionStartInput)
+  await relogio.advance(1_000)
+  const m = modelosValidos(d.modelos)
+  expect(rede.chamadas).toBe(1)
+  expect(m?.estado).toBe('recusado')
+  expect(m?.lidoEm).toBe(velha)
+  expect(m?.limites).toEqual(limites)
 })
 
 test('depois de uma falha, a sessão espera o intervalo antes de pedir de novo', { options: { moeda: 'USD', limitePorModelo: true } }, async ($, on) => {

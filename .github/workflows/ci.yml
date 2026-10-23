@@ -5,6 +5,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  # Toda segunda: uma versão nova do Claude Code pode quebrar o mod sem que ninguém faça push.
+  schedule:
+    - cron: '0 9 * * 1'
 permissions:
   contents: read
 # Um push novo no mesmo ramo cancela o anterior (os runners do Windows custam o dobro); na main,

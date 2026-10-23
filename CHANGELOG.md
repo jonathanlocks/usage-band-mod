@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.4 (2026-10-22)
+
+- Whether the settings window exists on this system is kept in the mod's session state, so the band redraws with the ⚙ as soon as it is known, without a workaround, and the check is not repeated after a reload.
+- New tests for what the user sees: a failed per-model read keeps the last numbers, the exchange-rate wait keeps growing after repeated failures, and only weekly per-model limits are shown.
+- CI also runs every Monday, to catch a new Claude Code version breaking the mod without a push.
+
 ## 0.4.3 (2026-10-22)
 
 - On the desktop app, the ⚙ on the band shows up as soon as the system answers whether the settings window can open, instead of up to a minute later.

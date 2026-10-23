@@ -99,6 +99,8 @@ test('8b. ⚙ no Windows com o exe barrado: o motivo aparece num aviso', { optio
   // eslint-disable-next-line require-yield
   on('process.spawn', async function* () { return { deny: 'spawn UNKNOWN' } })
   await comecar($)
+  // O ⚙ só existe depois que o sistema respondeu se há janela.
+  await relogio.settle()
   const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'desktop', component: 'AbovePrompt', props: BANDA(140) })
   await ui.press({ key: 'ajustes' })
   await relogio.settle()
