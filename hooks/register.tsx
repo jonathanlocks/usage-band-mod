@@ -4,7 +4,7 @@
 // app desktop) recusam o módulo inteiro quando $ é passado a uma função importada de outro arquivo.
 // ./fontes, ./janela e ./prefs trazem só a parte pura; os desenhos vêm de ./ui.
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ProcessSpawnResult, Register } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
 
 import type { Cambio, Leitura, LeituraModelos, Moeda, Preferencias } from '../types'
 import {
@@ -79,13 +79,13 @@ async function buscarModelos($: EngineInterface, agora: number): Promise<Leitura
 
 let buscandoDesde = 0
 
-// No máximo uma leitura por `idadeMax`, contando todas as sessões abertas (a leitura fica no $.store).
-async function medirModelos($: EngineInterface, idadeMax = INTERVALO_MODELOS): Promise<void> {
+// No máximo uma leitura por INTERVALO_MODELOS, contando todas as sessões abertas (a leitura fica no $.store).
+async function medirModelos($: EngineInterface): Promise<void> {
   const agora = await $.clock.now()
   if (agora - buscandoDesde < TRAVA) return
   buscandoDesde = agora
   try {
-    const recente = (m: LeituraModelos | null): boolean => m !== null && agora - m.em < idadeMax
+    const recente = (m: LeituraModelos | null): boolean => m !== null && agora - m.em < INTERVALO_MODELOS
     const naMemoria = await read($, modelos)
     if (recente(naMemoria) && naMemoria?.estado === 'ok') return
     // Depois de uma falha desta sessão, o store ainda pode trazer a leitura que outra sessão acabou de fazer.
@@ -161,7 +161,7 @@ async function aplicar($: EngineInterface, p: Pendente, opcoes: Preferencias): P
     let recusado = false
     try {
       const r = await $.config.set({ key: `usage-band-mod.${campo}`, value: p.prefs[campo] })
-      recusado = 'deny' in r && r.deny !== undefined
+      recusado = r.deny !== undefined
     } catch {
       recusado = true
     }
@@ -229,9 +229,19 @@ async function janelaDisponivel($: EngineInterface): Promise<boolean> {
   return disponivel
 }
 
+// Descobre se a janela existe e redesenha a banda: o ⚙ aparece assim que o sistema responde, sem
+// esperar o tique do minuto.
+async function oferecerJanela($: EngineInterface): Promise<void> {
+  try {
+    if (await janelaDisponivel($)) await update($, relogio, n => (n ?? 0) + 1)
+  } catch {
+    // A sessão acabou (ou o mod recarregou) antes da resposta: não há banda para redesenhar.
+  }
+}
+
 let aberta = false
 
-// Abre a janela e fica escutando até ela fechar. Só diz "aberta" depois do {"pronto":true} do app.
+// Abre a janela e fica escutando até o app sair. Só diz "aberta" depois do {"pronto":true} do app.
 async function abrirJanela($: EngineInterface, opcoes: Preferencias): Promise<{ resultado: Abertura; detalhe: string }> {
   if (aberta) return { resultado: 'ja-aberta', detalhe: '' }
   // A trava liga antes de qualquer espera: um clique duplo no ⚙ não abre duas janelas.
@@ -252,7 +262,7 @@ async function abrir($: EngineInterface, opcoes: Preferencias): Promise<{ result
   const prefs = await emVigor($, opcoes)
   const estado = { prefs, amostra: amostra(await read($, leitura), await read($, modelos), await read($, cambio)) }
   const argv = [caminhoDoApp($.plugin.root, plataforma), '--estado', JSON.stringify(estado)]
-  const iterador = $.process.spawn({ argv })[Symbol.asyncIterator]()
+  const iterador = $.process.spawn({ argv })
 
   let resto = ''
   let erros = ''
@@ -297,7 +307,7 @@ async function abrir($: EngineInterface, opcoes: Preferencias): Promise<{ result
   if (resposta !== 'pronto') {
     desistiu = true
     // Encerrar o laço encerra o app, se ele ainda estiver de pé. Sem esperar: ele pode estar travado.
-    void iterador.return?.({ code: null, signal: null } as unknown as ProcessSpawnResult)
+    void iterador.return({ code: null, signal: null })
     aberta = false
     return { resultado: 'falhou', detalhe: resposta }
   }
@@ -309,7 +319,11 @@ async function abrir($: EngineInterface, opcoes: Preferencias): Promise<{ result
       // O app caiu: o que ele já mandou continua valendo.
     } finally {
       aberta = false
-      await gravar($, ultima, opcoes)
+      try {
+        await gravar($, ultima, opcoes)
+      } catch {
+        // Não deu para gravar agora: o ajuste da janela continua valendo nesta sessão.
+      }
     }
   })()
   return { resultado: 'aberta', detalhe: '' }
@@ -381,7 +395,7 @@ async function iniciar($: EngineInterface, opcoes: Preferencias): Promise<void> 
   if ((await $.store.get(CHAVE_OCULTA)) === true) await update($, oculta, () => true)
   await medir($)
   await buscar($, opcoes)
-  void janelaDisponivel($)
+  void oferecerJanela($)
 }
 
 // A cada minuto: os relógios de "reinicia em" andam, e as fontes conferem se já é hora de ler.
@@ -417,7 +431,6 @@ export const register: Register = (on, options) => {
     const c = await contexto($, opcoes)
     if (e.props.hasSurvey || c === null || (await read($, oculta))) return next(e)
     await read($, relogio)
-    await read($, ajuste)
     const ui = $.ui.resolve(e)
     const outros = await next(e)
     return banda(ui, e.surface, e.props.bodyColumns, c, {

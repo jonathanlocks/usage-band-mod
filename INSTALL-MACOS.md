@@ -10,7 +10,7 @@ Run the commands in Terminal (or any shell on the Mac).
 |---|---|---|---|
 | macOS 26 for the settings window | `sw_vers -productVersion` | `26.0` or higher | The band works on any macOS that runs Claude Code; on older versions only the settings window is missing, and the options live in `/config`. |
 | Claude Code installed | `which claude` | a path such as `/Users/<you>/.local/bin/claude` | Install it with `curl -fsSL https://claude.ai/install.sh \| bash` |
-| Claude Code 2.1.302 or later | `claude --version` | `2.1.302 (Claude Code)` or higher | `claude update` |
+| Claude Code 2.1.295 or later | `claude --version` | `2.1.295 (Claude Code)` or higher | `claude update`. The desktop app brings its own Claude Code; update the app to update it. |
 | Signed in to Claude (subscription) or an API key | `claude auth status` | `"loggedIn": true` | Run `claude` and follow the login. In the desktop app, sign in in the app; this check does not apply there. |
 | Xcode | not needed | | The settings app ships already built (universal: Apple Silicon and Intel). Xcode's command line tools are only for rebuilding it. |
 
@@ -32,7 +32,7 @@ Pick one of the three paths.
 claude plugin install usage-band-mod --marketplace jonathanlocks/usage-band-mod
 ```
 
-Expected: `✔ Successfully installed plugin: usage-band-mod@usage-band-mod (scope: user)`. To set the options in the same command, add `--config` once per option, for example `--config idioma=en --config moeda=USD --config mascote=animado --config limitePorModelo=true`.
+Expected, among the progress lines: `✔ Successfully added marketplace: usage-band-mod`, then `✔ Successfully installed plugin: usage-band-mod@usage-band-mod (scope: user)`. A last line saying `4 userConfig options not yet set` is not an error: the defaults apply until the options are set. To set the options in the same command, add `--config` once per option, for example `--config idioma=en --config moeda=USD --config mascote=animado --config limitePorModelo=true`.
 
 **In the Claude desktop app** (where `/plugin` is not available): click **+** next to the prompt box, then **Plugins**, **Add marketplace**, type `jonathanlocks/usage-band-mod`, then **Add plugin** next to `usage-band-mod`.
 
@@ -73,12 +73,13 @@ The options live in Claude Code's own settings: `/config`, under `usage-band-mod
 | Symptom | Cause | Do this |
 |---|---|---|
 | No band above the prompt | The plugin is disabled | `claude plugin enable usage-band-mod@usage-band-mod`, then restart `claude` |
+| No band above the prompt, only in the desktop app | Version 0.4.0 or older: the engine some desktop apps bundle (2.1.295) refused it | `claude plugin update usage-band-mod@usage-band-mod`, then restart the app |
 | No band above the prompt | A survey or other prompt is using that space, or the band was hidden with `×` | Wait for the survey to go away; run `/usage-band` to show the band again |
 | The band is cut short | The terminal is narrow | Widen the window: the band drops details (reset times, bars, cost) to stay on one line |
 | The band shows `—` | The first turn has not finished yet | Send a message and wait for the answer |
 | No `5h` or `7d` bars | The session uses an API key, Bedrock or Vertex, not a subscription | Expected: those limits exist only on subscriptions |
 | `/usage-settings` says the window needs macOS 26 | macOS is older than 26 | Use `/config`; the options are the same |
-| "Could not open the settings window (…)" after installing from a zip downloaded in a browser | macOS quarantined the downloaded app, and Gatekeeper blocks it | `xattr -dr com.apple.quarantine <plugin folder>/macos/PainelDeUso.app`, or install with `claude plugin install` instead (Claude Code launches the app itself, so Gatekeeper is not involved) |
+| "Could not open the settings window (…)" after installing from a zip downloaded in a browser | macOS quarantined the downloaded app, and Gatekeeper blocks it | `xattr -dr com.apple.quarantine <plugin folder>/macos/PainelDeUso.app`, or install with `claude plugin install` instead (it clones the repository with git, which does not mark files as quarantined) |
 | The window opens behind the terminal | Another app kept the focus | Click the app in the Dock or use Cmd-Tab |
 | The cost is in dollars although BRL or EUR is chosen | No exchange rate yet (no network, or `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` is set) | Expected: the band shows dollars until it has a rate less than 3 days old |
 | Commands in the wrong language | The language option | The commands follow it: `/usage-band` and `/usage-settings` in English, `/uso-barra` and `/uso-ajustes` in Portuguese |
@@ -100,7 +101,7 @@ claude plugin uninstall usage-band-mod@usage-band-mod
 claude plugin marketplace remove usage-band-mod
 ```
 
-Restart `claude` after an update. The mod writes only to Claude Code's own settings (the four options) and to Claude Code's plugin store; it creates no files of its own. After uninstalling, Claude Code may keep its cached copy of the plugin in `~/.claude/plugins/cache/usage-band-mod` until it cleans its cache; deleting that folder by hand is safe once the plugin is uninstalled.
+Restart `claude` after an update. The mod writes only to Claude Code's own settings (the four options) and to Claude Code's plugin store; it creates no files of its own. After uninstalling, Claude Code may keep its cached copy of the plugin in `~/.claude/plugins/cache/usage-band-mod` until it cleans its cache; deleting that folder by hand is safe once the plugin is uninstalled. The same goes for the mod's saved state in `~/.claude/plugins/store/` (files named `usage-band-mod_…json`).
 
 ## For developers
 
@@ -118,7 +119,7 @@ To rebuild the settings app and check it against the published hash (needs the X
 ./macos/build.sh
 ```
 
-It ends with `PainelDeUso.app/Contents/MacOS/PainelDeUso: OK` when your build matches `macos/PainelDeUso.sha256`. The published hash comes from Swift 6.4; another Swift version can produce a different binary. For type-checking, see [Development](README.md#development) in the README.
+It builds in a temporary folder and ends with `PainelDeUso.app/Contents/MacOS/PainelDeUso: OK` when your build matches `macos/PainelDeUso.sha256`. The shipped `PainelDeUso.app` is never touched; `./macos/build.sh --atualizar-hash` replaces it and the hash (maintainers only). The published hash comes from Swift 6.4; another Swift version can produce a different binary. For type-checking, see [Development](README.md#development) in the README.
 
 ---
 

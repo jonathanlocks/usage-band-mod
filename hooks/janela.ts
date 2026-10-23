@@ -1,8 +1,8 @@
 // Janela de ajustes: no Mac um app SwiftUI (macos/), no Windows um app WPF (windows/), que o mod
 // abre e escuta. Os dois falam o mesmo protocolo.
 // Conversa por linhas JSON: o app escreve {"pronto": true} ao aparecer, {"prefs": {...}} a cada
-// mudança e {"fim": true} ao fechar. As mudanças valem na hora (átomo `ajuste`); ao fechar, vão
-// para o userConfig por $.config.set, para que o menu /config e as próximas sessões vejam o mesmo.
+// mudança e {"fim": true} ao fechar (o mod se guia pelo fim do processo, não por essa linha). As
+// mudanças valem na hora (átomo `ajuste`); quando o app sai, vão para o userConfig por $.config.set, para que o menu /config e as próximas sessões vejam o mesmo.
 // Aqui só a parte pura; abrir, escutar e gravar ficam em ./register, porque motores mais antigos do
 // Claude Code (o 2.1.295 do app desktop) não aceitam $ passado entre arquivos.
 import type { Cambio, Leitura, LeituraModelos, Preferencias } from '../types'
@@ -31,12 +31,11 @@ export function temDotNet48(saidaDoReg: string): boolean {
 }
 
 // Uma linha do app: só aceita preferências válidas; o resto é ignorado.
-export function lerLinha(linha: string, base: Preferencias): { prefs?: Preferencias; fim?: true; pronto?: true } {
+export function lerLinha(linha: string, base: Preferencias): { prefs?: Preferencias; pronto?: true } {
   try {
     // trim: no Windows a linha pode chegar com um \r sobrando.
     const o = JSON.parse(linha.trim()) as Record<string, unknown>
     if (o.pronto === true) return { pronto: true }
-    if (o.fim === true) return { fim: true }
     if (typeof o.prefs === 'object' && o.prefs !== null) return { prefs: preferencias(o.prefs, base) }
   } catch {
     // Linha que não é JSON (log do app): ignora.

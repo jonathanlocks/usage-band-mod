@@ -10,11 +10,12 @@ test('preferências inválidas caem no padrão, campo a campo', () => {
   expect(iguais(preferencias({ idioma: 'pt' }), { ...PADRAO, idioma: 'pt' })).toBe(true)
 })
 
-test('linhas da janela: preferências, fim, e o resto ignorado', () => {
+test('linhas da janela: preferências, pronto, e o resto ignorado', () => {
   expect(lerLinha('{"prefs":{"moeda":"EUR"}}', PADRAO)).toEqual({ prefs: { ...PADRAO, moeda: 'EUR' } })
   // Moeda que o mod não oferece cai no padrão.
   expect(lerLinha('{"prefs":{"moeda":"BTC"}}', PADRAO)).toEqual({ prefs: PADRAO })
-  expect(lerLinha('{"fim":true}', PADRAO)).toEqual({ fim: true })
+  // O fim do app vem do fim do processo: a linha {"fim":true} não muda nada.
+  expect(lerLinha('{"fim":true}', PADRAO)).toEqual({})
   expect(lerLinha('{"pronto":true}', PADRAO)).toEqual({ pronto: true })
   expect(lerLinha('log solto', PADRAO)).toEqual({})
 })

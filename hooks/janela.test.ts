@@ -31,7 +31,6 @@ function base(on: On, loja: Map<string, unknown>, sets: { key: string; value: un
     value: { startedAt: 0, context: { window: 200_000, tokens: 1, percent: 1 }, rateLimits: [], cost: { usd: 1 } } as unknown as SessionUsage,
   }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
-  on('session.turns', async () => ({ value: 1 }))
   on('http.fetch', async () => ({ value: { status: 503, ok: false, headers: {}, text: '' } }))
   const run = sistema.run ?? { exitCode: 0, stdout: '26.6\n' }
   on('process.run', async () => {
@@ -81,6 +80,35 @@ test('1. clique duplo: um só app, a segunda chamada diz ja-aberta', { options: 
   await relogio.settle()
   f.push('{"pronto":true}\n')
   expect((await d).text).toBe('Janela de ajustes aberta.')
+  expect(c.n).toBe(2)
+})
+
+test('1b. o store falha ao gravar depois que a janela fecha: nenhum erro solto, o ajuste vale e a janela abre de novo', { options: OPC }, async ($, on) => {
+  const relogio = mock.clock(on, { now: 1_000_000_000 })
+  let quebrado = false
+  const loja = new (class extends Map<string, unknown> {
+    override set(k: string, v: unknown): this {
+      if (quebrado) throw new Error('disco cheio')
+      return super.set(k, v)
+    }
+  })()
+  const sets: { key: string; value: unknown }[] = []
+  base(on, loja, sets)
+  const c = { n: 0 }; const f = app(on, c)
+  await comecar($)
+  const a = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle(); f.push('{"pronto":true}\n'); await a
+  f.push(`{"prefs":${JSON.stringify({ ...OPC, idioma: 'en' })}}\n`)
+  await relogio.settle()
+  quebrado = true
+  f.fim(); await relogio.settle()
+  quebrado = false
+  // A escolha da janela continua valendo nesta sessão, mesmo sem ter sido gravada.
+  expect(loja.has('ajuste')).toBe(false)
+  expect((await $.command.run({ command: 'uso-barra' } as never)).text).toBe('Usage band hidden.')
+  const d = $.command.run({ command: 'uso-ajustes' } as never)
+  await relogio.settle(); f.push('{"pronto":true}\n')
+  expect((await d).text).toBe('Settings window open.')
   expect(c.n).toBe(2)
 })
 
@@ -244,6 +272,9 @@ test('7. Linux: sem OS e sem sw_vers, a janela não existe', { options: OPC }, a
 
 // Um exe barrado (Smart App Control, antivírus) faz o spawn falhar antes de qualquer linha.
 // No kit, uma falha de spawn se simula com { deny }: o fluxo de quem chamou é rejeitado.
+// O motivo entre parênteses, como o motor o escreve (o prefixo dele pode mudar entre versões).
+const motivo = (texto: string | undefined): string => /\((.*)\)/.exec(texto ?? "")?.[1] ?? ''
+
 function barrado(on: On, contador: { n: number }, erro = 'spawn UNKNOWN') {
   // eslint-disable-next-line require-yield
   on('process.spawn', async function* () {
@@ -261,7 +292,8 @@ test('9. Windows com o exe barrado: diz que pode ser o Smart App Control e apont
   const a = $.command.run({ command: 'uso-ajustes' } as never)
   await relogio.settle()
   const texto = (await a).text
-  expect(texto).toBe(textos('pt').janelaBloqueada('usage-band-mod: $.process.spawn: spawn UNKNOWN'))
+  expect(texto).toBe(textos('pt').janelaBloqueada(motivo(texto)))
+  expect(motivo(texto)).toMatch(/spawn UNKNOWN$/)
   expect(texto).toMatch(/Controle Inteligente de Aplicativos/)
   expect(texto).toMatch(/\/config/)
   // A trava soltou: um novo pedido tenta de novo.
@@ -290,5 +322,7 @@ test('9c. Mac, app barrado: a mensagem de sempre, sem falar de Windows', { optio
   await comecar($)
   const a = $.command.run({ command: 'uso-ajustes' } as never)
   await relogio.settle()
-  expect((await a).text).toBe(textos('pt').janelaFalhou('usage-band-mod: $.process.spawn: spawn EACCES'))
+  const texto = (await a).text
+  expect(texto).toBe(textos('pt').janelaFalhou(motivo(texto)))
+  expect(motivo(texto)).toMatch(/spawn EACCES$/)
 })

@@ -11,7 +11,8 @@ Saídas:
 
 Uso: python3 gerar_mascote.py [--previa] [--docs] [--check]
   --docs   também grava docs/gestures/<gesto>.svg, um por gesto, para o README
-  --check  não grava nada; sai com erro se hooks/mascote.ts não bate com o gerado
+  --check  não grava nada; sai com erro se hooks/mascote.ts, o SVG animado ou os gestos de docs/gestures
+           não batem com o gerado
 """
 import html
 import json
@@ -21,7 +22,6 @@ import random
 
 W, H = 24, 14          # palco em pixels de arte
 OX, OY = 4, 2          # canto do Clawd parado: 2 linhas livres em cima e 2 embaixo, corpo no meio do palco
-QUADRO = 120           # ms por quadro, salvo onde o gesto pede outro
 
 CORPO = '#D87656'
 OLHO = '#141413'
@@ -481,24 +481,27 @@ def main():
                 f'shape-rendering="crispEdges">{desenho(clawd())}</svg>')
     ts = modulo_ts(s, estatico, total)
     destino = os.path.join(aqui, '..', 'hooks', 'mascote.ts')
+    animado = os.path.join(aqui, 'mascote-animado.svg')
+    # Um SVG por gesto, em loop, para o README (docs/gestures/<nome>.svg).
+    pasta = os.path.join(aqui, '..', 'docs', 'gestures')
+    gestos = {os.path.join(pasta, f'{nome}.svg'): svg(parado(500) + fn(), 96, 56)[0] for nome, _, fn in GESTOS}
     if '--check' in sys.argv:
-        atual = open(destino, encoding='utf-8').read() if os.path.exists(destino) else ''
-        if atual != ts:
-            print('hooks/mascote.ts está desatualizado: rode python3 arte/gerar_mascote.py')
+        esperado = {destino: ts, animado: s, **gestos}
+        errados = [os.path.relpath(c, os.path.join(aqui, '..')) for c, t in esperado.items()
+                   if not os.path.exists(c) or open(c, encoding='utf-8').read() != t]
+        if errados:
+            print('desatualizado: ' + ', '.join(errados) + '. Rode python3 arte/gerar_mascote.py --docs')
             sys.exit(1)
-        print('hooks/mascote.ts confere com o gerador')
+        print(f'hooks/mascote.ts, arte/mascote-animado.svg e os {len(gestos)} gestos de docs/gestures conferem com o gerador')
         return
     with open(destino, 'w', encoding='utf-8') as f:
         f.write(ts)
-    with open(os.path.join(aqui, 'mascote-animado.svg'), 'w', encoding='utf-8') as f:
+    with open(animado, 'w', encoding='utf-8') as f:
         f.write(s)
     if '--docs' in sys.argv:
-        # Um SVG por gesto, em loop, para o README (docs/gestures/<nome>.svg).
-        pasta = os.path.join(aqui, '..', 'docs', 'gestures')
         os.makedirs(pasta, exist_ok=True)
-        for nome, _, fn in GESTOS:
-            sg, _ = svg(parado(500) + fn(), 96, 56)
-            with open(os.path.join(pasta, f'{nome}.svg'), 'w', encoding='utf-8') as f:
+        for caminho, sg in gestos.items():
+            with open(caminho, 'w', encoding='utf-8') as f:
                 f.write(sg)
     if '--previa' in sys.argv:
         por_gesto = []

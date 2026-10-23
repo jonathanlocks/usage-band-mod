@@ -30,5 +30,5 @@ const PT: typeof EN = {
   alt: 'Mascote caranguejo em pixel',
 }
 
-export type Textos = typeof EN
+type Textos = typeof EN
 export const textos = (idioma: Idioma): Textos => (idioma === 'pt' ? PT : EN)

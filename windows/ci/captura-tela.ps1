@@ -1,7 +1,7 @@
 ﻿# Captura de tela de verdade (o que o DWM compôs: barra de título do sistema, Mica, sombra).
 # Dois jeitos:
 #   -Exe -Estado -Tema claro|escuro   muda o tema do Windows, abre o app e captura a janela dele
-#   -Processo <id> | -Janela <título> captura uma janela já aberta (console da banda)
+#   -Janela <título>                  captura uma janela já aberta (console da banda)
 #   -SoPapel -Tema claro|escuro       só troca o papel de parede e minimiza as janelas (antes do console)
 # Com -AltoContraste, liga o alto contraste do Windows antes de abrir o app e desliga depois.
 # Com -Teclas, põe o foco no primeiro controle e aperta essas teclas (formato do SendKeys, ex.
@@ -14,7 +14,6 @@ param(
   [string]$Exe,
   [string]$Estado,
   [ValidateSet('claro', 'escuro')][string]$Tema = 'claro',
-  [int]$Processo = 0,
   [string]$Janela,
   [switch]$Papel,
   [switch]$SoPapel,
@@ -170,10 +169,9 @@ else {
   $h = [IntPtr]::Zero
   $limite = (Get-Date).AddSeconds(15)
   while ($h -eq [IntPtr]::Zero -and (Get-Date) -lt $limite) {
-    if ($Processo -ne 0) { $pr = Get-Process -Id $Processo -ErrorAction SilentlyContinue; if ($pr) { $h = $pr.MainWindowHandle } }
-    if ($h -eq [IntPtr]::Zero -and $Janela) { $h = [Win]::PorTitulo($Janela) }
+    if ($Janela) { $h = [Win]::PorTitulo($Janela) }
     if ($h -eq [IntPtr]::Zero) { Start-Sleep -Milliseconds 300 }
   }
-  if ($h -eq [IntPtr]::Zero) { throw "janela não encontrada (processo $Processo, título '$Janela')" }
+  if ($h -eq [IntPtr]::Zero) { throw "janela não encontrada (título '$Janela')" }
   Capturar $h $destino
 }

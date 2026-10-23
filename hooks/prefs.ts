@@ -1,13 +1,13 @@
 // Preferências do mod. A fonte é o `userConfig` do plugin.json (o menu de configurações do
-// Claude Code e a tela de instalação). A janela do Mac grava por cima, ao vivo, e no fim passa
-// tudo para o `userConfig` por `$.config.set`.
+// Claude Code e a tela de instalação). A janela de ajustes (Mac e Windows) grava por cima, ao vivo,
+// e no fim passa tudo para o `userConfig` por `$.config.set`.
 import type { PluginOptions } from 'claude-code'
 
 import type { Idioma, Mascote, Moeda, Preferencias } from '../types'
 
-export const IDIOMAS: readonly Idioma[] = ['en', 'pt']
-export const MOEDAS: readonly Moeda[] = ['USD', 'BRL', 'EUR']
-export const MASCOTES: readonly Mascote[] = ['animado', 'parado', 'oculto']
+const IDIOMAS: readonly Idioma[] = ['en', 'pt']
+const MOEDAS: readonly Moeda[] = ['USD', 'BRL', 'EUR']
+const MASCOTES: readonly Mascote[] = ['animado', 'parado', 'oculto']
 
 export const PADRAO: Preferencias = { idioma: 'en', moeda: 'USD', mascote: 'animado', limitePorModelo: true }
 

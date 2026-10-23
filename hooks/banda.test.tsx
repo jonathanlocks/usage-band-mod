@@ -6,9 +6,6 @@ import { MASCOTE_TEXTO } from './ui'
 
 const AGORA = 1_000_000_000
 function sessao(on: On, assinatura: boolean, store: Record<string, unknown> = {}) {
-  return sessao2(on, assinatura, store)
-}
-function sessao2(on: On, assinatura: boolean, store: Record<string, unknown>) {
   const relogio = mock.clock(on, { now: AGORA })
   mock.store(on, store)
   mock.env(on, { CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1' })
@@ -29,7 +26,6 @@ function sessao2(on: On, assinatura: boolean, store: Record<string, unknown>) {
     } as unknown as SessionUsage,
   }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
-  on('session.turns', async () => ({ value: 3 }))
   on('process.run', async () => ({ value: { exitCode: 1, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
   on('ui.render', async ($, e) => {
     const { Box } = $.ui.resolve(e)
@@ -128,7 +124,6 @@ test('ordem de queda do cabeçalho em encaixe', () => {
     const k = `${e.w > 0 ? 'b' : 'c'}:${e.cabeca}:${e.mostrar}`
     if (seq[seq.length - 1] !== k) seq.push(k)
   }
-  void 0
   const niveis = seq.filter(x => x.startsWith('c:')).map(x => x.split(':')[1])
   expect([...new Set(niveis)]).toEqual(['toda', 'sem-custo', 'so-modelo', 'nada'])
   expect(seq.filter(x => !x.endsWith(':3')).every(x => x.includes(':nada:'))).toBe(true)
@@ -141,7 +136,6 @@ for (const [nome, idade, espera] of [['velho (4d)', 4 * 86_400_000, /US\$ 3,26/]
     await relogio.advance(1_000)
     const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'terminal', component: 'AbovePrompt', props: BANDA(140) })
     const t = texto(filhos(await ui.drawn())[0])
-    void 0
-    expect(t).toMatch(espera)
+      expect(t).toMatch(espera)
   })
 }

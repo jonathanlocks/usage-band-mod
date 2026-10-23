@@ -25,8 +25,8 @@ $reg = Rodar 'reg query "HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full
 if ($reg -notmatch 'Release\s+REG_DWORD\s+0x([0-9a-f]+)' -or [Convert]::ToInt32($Matches[1], 16) -lt 528040) { throw '.NET Framework 4.8 não encontrado' }
 Rodar 'claude auth status' { claude auth status } | Out-Null
 
-# 1. Do GitHub, como no guia: confere o caminho da cópia em cache que o guia cita. O repositório
-#    público ainda está na versão sem Windows; aqui só importa o caminho e os comandos.
+# 1. Do GitHub, como no guia: confere o caminho da cópia em cache que o guia cita e os comandos. O
+#    código testado de verdade é o desta cópia, instalado no passo seguinte.
 $cache = Join-Path $env:USERPROFILE '.claude\plugins\cache\usage-band-mod'
 $inst = Rodar 'claude plugin install usage-band-mod --marketplace jonathanlocks/usage-band-mod' {
   claude plugin install usage-band-mod --marketplace jonathanlocks/usage-band-mod --config idioma=en --config moeda=USD --config mascote=animado --config limitePorModelo=true

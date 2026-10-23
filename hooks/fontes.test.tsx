@@ -1,7 +1,12 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { HttpResponse, On, RenderPropsOf, SessionStartInput, SessionUsage } from 'claude-code'
 
-import { ESPERAS, INTERVALO_CAMBIO, INTERVALO_MODELOS, cambioValido, lerCambio, lerModelos, modelosValidos, proximaTentativa } from './fontes'
+import { ESPERAS, INTERVALO_CAMBIO, INTERVALO_MODELOS, cambioValido, lerCambio, lerModelos, modelosValidos, proximaTentativa, silencio } from './fontes'
+
+test('CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: qualquer valor liga, menos vazio, 0 e false', () => {
+  for (const v of ['1', 'true', 'yes', 'TRUE']) expect(silencio(v)).toBe(true)
+  for (const v of [undefined, '', '0', 'false', 'False']) expect(silencio(v)).toBe(false)
+})
 
 test('lerModelos pega só as janelas semanais por modelo', () => {
   const corpo = JSON.stringify({
@@ -45,7 +50,6 @@ function sessao(on: On, rede: { chamadas: number; status: number }) {
     value: { startedAt: 0, context: { window: 200_000, tokens: 48_000, percent: 24 }, rateLimits: [], cost: { usd: 3.26 } } as unknown as SessionUsage,
   }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
-  on('session.turns', async () => ({ value: 3 }))
   on('http.fetch', async () => {
     rede.chamadas++
     return { value: { status: rede.status, ok: rede.status === 200, headers: {}, text: '{"data":{"rates":{"BRL":"5.4"}}}' } satisfies HttpResponse }

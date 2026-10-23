@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.3 (2026-10-22)
+
+- On the desktop app, the ⚙ on the band shows up as soon as the system answers whether the settings window can open, instead of up to a minute later.
+- If saving the settings window's choices fails after it closes, the choices still apply for the session and no error is left unhandled.
+- `macos/build.sh` builds in a temporary folder and leaves the shipped app alone unless `--atualizar-hash` is given; before, it replaced the app even when the check failed. `arte/gerar_mascote.py --check` also checks `arte/mascote-animado.svg` and the gesture images in `docs/gestures/`.
+- CI tests the Windows app it has just built (the smoke test, the protocol, opening in front, and now the accessibility scan) even when it does not match the published hash; jobs have a 30-minute limit, and outside `main` a newer push cancels the run on the same branch.
+- Install guides: Claude Code 2.1.295 or later; the real install output; the Windows status from the first user; troubleshooting for the 0.4.0 and 0.4.1 problems; where the mod keeps its state.
+- Dead code removed: an unused parameter, a duplicate read, the unused handling of the app's last line, exports nothing imported, and test mocks for calls the mod never makes.
+
 ## 0.4.2 (2026-10-22)
 
 - Windows: the settings window opens in front of Claude. The app is started by a background process (desktop app → `claude.exe` → hooks worker → `PainelDeUso.exe`), and Windows refuses the foreground to such a process, so the window opened behind the Claude window and the ⚙ or `/usage-settings` seemed to do nothing. The window now lifts itself above other windows (Topmost on and off) and then asks for the foreground through the input queue of the window in front. Reported by the first Windows user.

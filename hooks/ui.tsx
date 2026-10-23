@@ -18,7 +18,7 @@ const OLHO = '#000000'
 // olhos são pretos nos dois temas, como no Clawd do próprio Claude Code. Os braços são traços na
 // meia altura (╺ ╸), para fora do corpo; nos quadrantes de baixo (▗ ▖) o conjunto lia como focinho.
 // A primeira linha do logo dele (▐▛███▜▌), que a banda usava antes, lia como um bloco cortado.
-export const MASCOTE_PARTES = [
+const MASCOTE_PARTES = [
   { t: '╺', cor: 'claude' },
   { t: '▮', cor: OLHO, fundo: 'claude' },
   { t: ' ', fundo: 'claude' },
@@ -28,7 +28,7 @@ export const MASCOTE_PARTES = [
 
 // Sem leitura, no lugar da barra vai uma linha pontilhada apagada: "sem dado" não pode parecer
 // "0% usado" (um trilho cinza cheio). O · existe em toda fonte, inclusive no console antigo do Windows.
-export const SEM_LEITURA = '·'
+const SEM_LEITURA = '·'
 export const MASCOTE_TEXTO = MASCOTE_PARTES.map(p => p.t).join('')
 
 const limite = (l: Limite[], tipo: string): Limite | null => l.find(x => x.tipo === tipo) ?? null
@@ -48,7 +48,7 @@ const reinicio = (iso: string | null, agora: number): string => {
 }
 
 // Os trechos da banda. 5h e 7d só entram quando a sessão tem esses limites (assinatura).
-export function trechosDaBanda(c: Contexto): Trecho[] {
+function trechosDaBanda(c: Contexto): Trecho[] {
   const t = textos(c.prefs.idioma)
   const cinco = limite(c.l.limites, 'five_hour')
   const sete = limite(c.l.limites, 'seven_day')
@@ -62,7 +62,7 @@ export function trechosDaBanda(c: Contexto): Trecho[] {
   ]
 }
 
-export const custoCurto = (c: Contexto): string =>
+const custoCurto = (c: Contexto): string =>
   c.l.usd === null ? '' : ` · ${dinheiro(c.l.usd, c.prefs.moeda, c.taxa, c.prefs.idioma)}`
 
 type Ui = ReturnType<EngineInterface['ui']['resolve']>
@@ -96,7 +96,7 @@ function mascoteGrafico(ui: Ui, prefs: Preferencias): RenderElement | null {
   )
 }
 
-export type Acoes = { ocultar: () => unknown; ajustes?: () => unknown }
+type Acoes = { ocultar: () => unknown; ajustes?: () => unknown }
 
 export function banda(ui: Ui, superficie: string, colunas: number, c: Contexto, acoes: Acoes, outros: RenderElement): RenderElement {
   const { Box, Text, Button } = ui

@@ -7,6 +7,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Um push novo no mesmo ramo cancela o anterior (os runners do Windows custam o dobro); na main,
+# cada commit tem o seu resultado.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   mod:
     name: validate, test, tsc (${{ matrix.os }})
@@ -17,8 +22,11 @@ jobs:
         # fora do repositório público ele só roda a pedido (workflow_dispatch).
         os: ${{ fromJSON((github.repository == 'jonathanlocks/usage-band-mod' || github.event_name == 'workflow_dispatch') && '["ubuntu-24.04","macos-15","windows-2022"]' || '["ubuntu-24.04","windows-2022"]') }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Claude Code (Unix)
         if: runner.os != 'Windows'
         run: |
@@ -54,8 +62,11 @@ jobs:
   hashes:
     name: published hashes and line endings
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - run: cd macos && sha256sum -c PainelDeUso.sha256
       - run: cd windows && sha256sum -c PainelDeUso.sha256
       - name: No CRLF in the index
@@ -63,8 +74,11 @@ jobs:
   install:
     name: install like a user (windows-2022)
     runs-on: windows-2022
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Claude Code
         shell: pwsh
         run: ./windows/ci/instalar-claude.ps1
@@ -99,8 +113,13 @@ jobs:
       matrix:
         os: [windows-2022, windows-2025]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      EXE: windows/bin/Release/net48/PainelDeUso.exe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: windows/global.json
@@ -109,20 +128,31 @@ jobs:
         run: |
           Push-Location windows; dotnet --version; Pop-Location
           ./windows/build.ps1
+      # Os testes rodam sobre o exe recém-compilado, mesmo quando ele não bate com o hash publicado:
+      # assim um exe novo é testado antes de ir para o repositório.
       - name: Smoke test (opens, renders, exits)
+        if: ${{ !cancelled() }}
         shell: pwsh
-        run: ./windows/ci/imprimir.ps1 -Exe windows/PainelDeUso.exe -Estado windows/ci/amostra-en.json -Saida smoke.png -Opcoes --claro
+        run: ./windows/ci/imprimir.ps1 -Exe $env:EXE -Estado windows/ci/amostra-en.json -Saida smoke.png -Opcoes --claro
       - name: Protocol with the mod (argv, stdout, keyboard)
+        if: ${{ !cancelled() }}
         shell: powershell
-        run: ./windows/ci/protocolo.ps1 -Exe windows/PainelDeUso.exe -Saida protocolo.txt
+        run: ./windows/ci/protocolo.ps1 -Exe $env:EXE -Saida out/protocolo.txt
       # No app do Claude o exe nasce de um processo de fundo, e o Windows lhe nega o primeiro plano.
       - name: Opens in front of the app that asked for it
+        if: ${{ !cancelled() }}
         shell: powershell
-        run: ./windows/ci/frente.ps1 -Exe windows/PainelDeUso.exe
+        run: ./windows/ci/frente.ps1 -Exe $env:EXE
+      - name: Accessibility tree (names and controls the Narrator reads)
+        if: ${{ !cancelled() }}
+        shell: powershell
+        run: |
+          ./windows/ci/a11y.ps1 -Exe $env:EXE -Estado windows/ci/amostra-en.json -Saida out/a11y-en.txt
+          ./windows/ci/a11y.ps1 -Exe $env:EXE -Estado windows/ci/amostra-pt.json -Saida out/a11y-pt.txt
       - name: Hash of what was built
         if: always()
         shell: pwsh
-        run: Get-FileHash windows/PainelDeUso.exe -Algorithm SHA256 | Format-List
+        run: Get-FileHash $env:EXE -Algorithm SHA256 | Format-List
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -132,4 +162,4 @@ jobs:
             windows/PainelDeUso.sha256
             windows/bin/Release/net48/PainelDeUso.exe
             smoke.png
-            protocolo.txt
+            out/

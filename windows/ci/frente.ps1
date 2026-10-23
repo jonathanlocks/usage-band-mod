@@ -3,8 +3,7 @@
 # atrás. Aqui uma janela no papel do Claude fica na frente e recebe uma tecla, e o exe é aberto por outro
 # processo (este script), que não recebeu nem injetou entrada nenhuma. Passa se a janela de ajustes ficar por cima da outra; diz também se ganhou o foco.
 #   powershell -File windows/ci/frente.ps1 -Exe windows/PainelDeUso.exe          falha se ficar atrás
-#   powershell -File windows/ci/frente.ps1 -Exe velho.exe -SoMedir               só mede (para comparar)
-param([Parameter(Mandatory)][string]$Exe, [switch]$SoMedir)
+param([Parameter(Mandatory)][string]$Exe)
 # Trava: só roda no GitHub Actions, num runner descartável.
 if ($env:GITHUB_ACTIONS -ne 'true') {
   throw 'frente.ps1 só roda no GitHub Actions (GITHUB_ACTIONS=true): ele abre janelas, aperta F15 e muda a trava de primeiro plano do Windows. Não rode no seu computador.'
@@ -65,7 +64,7 @@ try {
   $acima = [Ordem]::Acima($hPainel, $hClaude)
   $foco = [Win]::GetForegroundWindow() -eq $hPainel
   Write-Host "$(Split-Path $Exe -Leaf): por cima do Claude=$acima, com o foco=$foco, na frente: '$([Win]::Titulo([Win]::GetForegroundWindow()))'"
-  if (-not $SoMedir -and -not $acima) { throw 'a janela de ajustes abriu atrás da janela do Claude' }
+  if (-not $acima) { throw 'a janela de ajustes abriu atrás da janela do Claude' }
 } finally {
   if ($painel -ne $null -and -not $painel.HasExited) { $painel.Kill() }
   if (-not $claude.HasExited) { $claude.Kill() }

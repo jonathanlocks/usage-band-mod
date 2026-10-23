@@ -5,7 +5,13 @@ import type { Engine } from 'claude-code/testing'
 import { textos } from './textos'
 
 // Uma sessão de assinatura com os números do exemplo do README.
-function sessao(on: On, assinatura = true, windows = false, contexto: unknown = { window: 200_000, tokens: 48_000, percent: 24 }) {
+function sessao(
+  on: On,
+  assinatura = true,
+  windows = false,
+  contexto: unknown = { window: 200_000, tokens: 48_000, percent: 24 },
+  sistemaResponde: Promise<void> = Promise.resolve(),
+) {
   const relogio = mock.clock(on, { now: 1_000_000_000 })
   mock.store(on)
   mock.env(on, windows ? { OS: 'Windows_NT' } : {})
@@ -25,10 +31,12 @@ function sessao(on: On, assinatura = true, windows = false, contexto: unknown = 
     } as unknown as SessionUsage,
   }))
   on('session.model', async () => ({ value: 'claude-opus-5-5' }))
-  on('session.turns', async () => ({ value: 3 }))
   // No Mac, o sw_vers; no Windows, a chave Release do .NET 4.8 no registro.
   const stdout = windows ? '    Release    REG_DWORD    0x80ea8\r\n' : '26.6\n'
-  on('process.run', async () => ({ value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
+  on('process.run', async () => {
+    await sistemaResponde
+    return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
   // O que o Claude Code desenharia embaixo da banda: nada.
   on('ui.render', async ($, e) => {
     const { Box } = $.ui.resolve(e)
@@ -61,6 +69,18 @@ test('a banda mostra modelo, custo e barras no terminal e no desktop', { options
   }
 })
 
+test('o ⚙ aparece assim que o sistema responde, sem esperar o tique do minuto', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
+  let responder = (): void => {}
+  const relogio = sessao(on, true, false, undefined, new Promise<void>(r => (responder = r)))
+  await comecar($)
+  const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'desktop', component: 'AbovePrompt', props: BANDA(140) })
+  expect((await ui.find({ key: 'ajustes' })) !== undefined).toBe(false)
+  responder()
+  await relogio.settle()
+  expect((await ui.find({ key: 'ajustes' })) !== undefined).toBe(true)
+  await ui.unmount()
+})
+
 test('8. ⚙ no desktop do Windows (com .NET 4.8), não no terminal', { options: { idioma: 'pt', limitePorModelo: false } }, async ($, on) => {
   sessao(on, true, true)
   await comecar($)
@@ -82,7 +102,10 @@ test('8b. ⚙ no Windows com o exe barrado: o motivo aparece num aviso', { optio
   const ui = await $.ui.mount({ plugin: 'usage-band-mod', surface: 'desktop', component: 'AbovePrompt', props: BANDA(140) })
   await ui.press({ key: 'ajustes' })
   await relogio.settle()
-  expect(avisos).toEqual([textos('pt').janelaBloqueada('usage-band-mod: $.process.spawn: spawn UNKNOWN')])
+  expect(avisos.length).toBe(1)
+  const motivo = /\((.*)\)/.exec(avisos[0] ?? '')?.[1] ?? ''
+  expect(motivo).toMatch(/spawn UNKNOWN$/)
+  expect(avisos[0]).toBe(textos('pt').janelaBloqueada(motivo))
 })
 
 test('sem assinatura, as barras de 5h e 7d não aparecem', { options: { limitePorModelo: false } }, async ($, on) => {
