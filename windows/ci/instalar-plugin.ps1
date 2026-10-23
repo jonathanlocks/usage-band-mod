@@ -1,6 +1,7 @@
 ﻿# Instala o mod como uma pessoa faria, a partir desta cópia do repositório, e confere o que o
-# INSTALL-WINDOWS.md promete: o plugin aparece habilitado, a checagem do .NET Framework dá o que o
-# guia diz, o PainelDeUso.exe chega intacto à pasta do plugin e abre de lá, e desinstalar funciona.
+# INSTALL-WINDOWS.md promete: o plugin aparece habilitado, o diagnóstico do guia mostra o mod carregado,
+# a checagem do .NET Framework dá o que o guia diz, o PainelDeUso.exe chega intacto à pasta do plugin e
+# abre de lá, e desinstalar funciona.
 # Não precisa de login.   pwsh windows/ci/instalar-plugin.ps1 -Saida out/instalacao.txt
 param([string]$Saida)
 # Trava: só roda no GitHub Actions, num runner descartável.
@@ -62,6 +63,12 @@ $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
 $publicado = ((Get-Content (Join-Path $raiz 'windows\PainelDeUso.sha256') -Raw) -split '\s+')[0]
 Anotar "  sha256 $hash (publicado $publicado), $((Get-Item $exe).Length) bytes"
 if ($hash -ne $publicado) { throw 'o exe do plugin não é o publicado' }
+# O diagnóstico do guia (passo 2 de "Check that it worked"), igual ao texto: sem login ele já mostra se o
+# Claude Code carregou o mod.
+$diag = Rodar 'diagnóstico do guia: claude -p ok --debug-file + Select-String' {
+  $f = "$env:TEMP\usage-band.txt"; Remove-Item $f -ErrorAction SilentlyContinue; claude -p ok --debug-file $f | Out-Null; Select-String -Path $f -Pattern 'hooks module usage-band-mod.*(loaded|failed)|allowManagedModsOnly'
+}
+if ($diag -notmatch 'hooks module usage-band-mod@usage-band-mod loaded') { throw 'o diagnóstico do guia não mostrou o mod carregado' }
 & (Join-Path $PSScriptRoot 'imprimir.ps1') -Exe $exe -Estado (Join-Path $PSScriptRoot 'amostra-en.json') -Saida out/instalado.png -Opcoes '--claro'
 Anotar '  o exe abriu de dentro do plugin, desenhou a janela e saiu com 0 (out/instalado.png)'
 $des = Rodar 'claude plugin uninstall usage-band-mod@usage-band-mod' { claude plugin uninstall usage-band-mod@usage-band-mod }

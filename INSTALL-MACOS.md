@@ -11,6 +11,7 @@ Run the commands in Terminal (or any shell on the Mac).
 | macOS 26 for the settings window | `sw_vers -productVersion` | `26.0` or higher | The band works on any macOS that runs Claude Code; on older versions only the settings window is missing, and the options live in `/config`. |
 | Claude Code installed | `which claude` | a path such as `/Users/<you>/.local/bin/claude` | Install it with `curl -fsSL https://claude.ai/install.sh \| bash` |
 | Claude Code 2.1.295 or later | `claude --version` | `2.1.295 (Claude Code)` or higher | `claude update`. The desktop app brings its own Claude Code; update the app to update it. |
+| Claude Code may run plugin code on this Mac | checked after installing, in step 2 of [Check that it worked](#check-that-it-worked) | `loaded` | A setting (`disableAllHooks`) or the organization's policy can turn plugin code off; step 2 tells which and what to do. |
 | Signed in to Claude (subscription) or an API key | `claude auth status` | `"loggedIn": true` | Run `claude` and follow the login. In the desktop app, sign in in the app; this check does not apply there. |
 | Xcode | not needed | | The settings app ships already built (universal: Apple Silicon and Intel). Xcode's command line tools are only for rebuilding it. |
 
@@ -49,11 +50,23 @@ The install screen asks four questions. When the person has no preference, keep 
 
 1. `claude plugin list` shows `usage-band-mod@usage-band-mod` with `Status: ✔ enabled`.
    If it says `disabled`: `claude plugin enable usage-band-mod@usage-band-mod`.
-2. Start `claude` in a folder. Within about 10 seconds a line appears above the prompt with the model name (for example `Opus 5.5`), the cost and `Context` with a bar.
+2. Check that Claude Code loads the mod on this Mac. It works even before signing in; signed in, it sends Claude one short message (`ok`):
+   ```bash
+   f=/tmp/usage-band.txt; rm -f "$f"; claude -p ok --debug-file "$f" </dev/null >/dev/null; grep -E 'hooks module usage-band-mod.*(loaded|failed)|allowManagedModsOnly' "$f"
+   ```
+
+   | What it prints | What it means | Do this |
+   |---|---|---|
+   | A line ending in `loaded (worker, …)` | Claude Code runs the mod on this Mac | Go on to the next step |
+   | Nothing | The plugin is not installed, or it is disabled | Go back to step 1 |
+   | `… not loaded: only managed plugins and built-in plugins run (allowManagedHooksOnly / disableAllHooks)` | Plugin code (hooks) is turned off on this Mac | Look for `"disableAllHooks": true` in `~/.claude/settings.json` and in the project's `.claude/settings.json` and `.claude/settings.local.json`. If it is there, ask the person before removing it: it turns off every hook, not only this mod. If it is in none of them, it comes from the organization's policy (`managed-settings.json`), and only an administrator can change it. |
+   | A line mentioning `allowManagedModsOnly` | The organization allows only its own mods | Only an administrator can allow this one (not tested: it needs an organization policy). |
+   | `… failed to load …` | Claude Code is older than 2.1.295, or the mod is older than 0.4.1 | `claude update`, then `claude plugin update usage-band-mod@usage-band-mod` |
+3. Start `claude` in a folder. Within about 10 seconds a line appears above the prompt with the model name (for example `Opus 5.5`), the cost and `Context` with a bar.
    The `5h` and `7d` bars only appear on a subscription.
-3. Run `/usage-band`: the line disappears and Claude Code answers `Usage band hidden.` Run it again: `Usage band visible.`
-4. Run `/usage-settings`: Claude Code answers `Settings window open.` and the settings window opens (in the desktop app, the ⚙ on the band does the same). Change **Language** to **Português** and watch the band switch to `Contexto` right away. Click **Done** (or press Return or Esc).
-5. Quit `claude` and start it again. The band is still in Portuguese, and `/config` shows the new value under `usage-band-mod`. Switch back the same way if that was only a test (the commands are now `/uso-barra` and `/uso-ajustes`).
+4. Run `/usage-band`: the line disappears and Claude Code answers `Usage band hidden.` Run it again: `Usage band visible.`
+5. Run `/usage-settings`: Claude Code answers `Settings window open.` and the settings window opens (in the desktop app, the ⚙ on the band does the same). Change **Language** to **Português** and watch the band switch to `Contexto` right away. Click **Done** (or press Return or Esc).
+6. Quit `claude` and start it again. The band is still in Portuguese, and `/config` shows the new value under `usage-band-mod`. Switch back the same way if that was only a test (the commands are now `/uso-barra` and `/uso-ajustes`).
 
 If `/usage-settings` answers that the window needs macOS 26, the Mac runs an older macOS: use `/config`.
 
@@ -73,6 +86,8 @@ The options live in Claude Code's own settings: `/config`, under `usage-band-mod
 | Symptom | Cause | Do this |
 |---|---|---|
 | No band above the prompt | The plugin is disabled | `claude plugin enable usage-band-mod@usage-band-mod`, then restart `claude` |
+| No band above the prompt, and the plugin is enabled | Claude Code did not load the mod | Run step 2 of [Check that it worked](#check-that-it-worked): it says why |
+| `claude plugin install` says the marketplace is blocked or not allowed | The organization's policy limits marketplaces (`strictKnownMarketplaces` or `blockedMarketplaces`) | Only an administrator can allow `jonathanlocks/usage-band-mod`. Do not work around the policy |
 | No band above the prompt, only in the desktop app | Version 0.4.0 or older: the engine some desktop apps bundle (2.1.295) refused it | `claude plugin update usage-band-mod@usage-band-mod`, then restart the app |
 | No band above the prompt | A survey or other prompt is using that space, or the band was hidden with `×` | Wait for the survey to go away; run `/usage-band` to show the band again |
 | The band is cut short | The terminal is narrow | Widen the window: the band drops details (reset times, bars, cost) to stay on one line |

@@ -17,6 +17,7 @@ Run the commands in **PowerShell** (Windows PowerShell 5.1 or PowerShell 7), not
 | Git for Windows (recommended) | `git --version` | `git version 2.x` | Claude Code's Bash tool uses it. The mod itself does not need it. |
 | Windows Terminal (recommended for the terminal) | `Get-AppxPackage Microsoft.WindowsTerminal \| Select-Object Version` | a version number | Install it from the Microsoft Store. The legacy console (conhost) draws the bars and the crab's body and arms but shows boxes instead of its eyes (`▮`) and the reset arrow (`↻`). |
 | Smart App Control (Windows 11) | `reg query "HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy" /v VerifiedAndReputablePolicyState` | `0x0` (off), or the value is missing (Windows 10) | `0x1` means on and `0x2` means evaluation mode. Smart App Control may refuse to run `PainelDeUso.exe`, which is not code-signed; this has not been tested. Install anyway: the band does not depend on the window, and `/config` has every option. Do not turn Smart App Control off for this mod; that is the person's security decision. |
+| Claude Code may run plugin code on this PC | checked after installing, in step 2 of [Check that it worked](#check-that-it-worked) | `loaded` | A setting (`disableAllHooks`) or the organization's policy can turn plugin code off; step 2 tells which and what to do. |
 | Signed in to Claude (subscription) or an API key | `claude auth status` | `"loggedIn": true` | Run `claude` and follow the login. In the desktop app, sign in in the app; this check does not apply there. |
 
 Do not run anything as Administrator. Nothing in this guide needs it.
@@ -54,11 +55,23 @@ The install screen asks four questions. When the person has no preference, keep 
 
 1. `claude plugin list` shows `usage-band-mod@usage-band-mod` with `Status: ✔ enabled` (`√` instead of `✔` in some Windows consoles).
    If it says `disabled`: `claude plugin enable usage-band-mod@usage-band-mod`.
-2. Start `claude` in a folder. Within about 10 seconds a line appears above the prompt with the model name (for example `Opus 5.5`), the cost and `Context` with a bar.
+2. Check that Claude Code loads the mod on this PC. It works even before signing in; signed in, it sends Claude one short message (`ok`):
+   ```powershell
+   $f = "$env:TEMP\usage-band.txt"; Remove-Item $f -ErrorAction SilentlyContinue; claude -p ok --debug-file $f | Out-Null; Select-String -Path $f -Pattern 'hooks module usage-band-mod.*(loaded|failed)|allowManagedModsOnly'
+   ```
+
+   | What it prints | What it means | Do this |
+   |---|---|---|
+   | A line ending in `loaded (worker, …)` | Claude Code runs the mod on this PC | Go on to the next step |
+   | Nothing | The plugin is not installed, or it is disabled | Go back to step 1 |
+   | `… not loaded: only managed plugins and built-in plugins run (allowManagedHooksOnly / disableAllHooks)` | Plugin code (hooks) is turned off on this PC | Look for `"disableAllHooks": true` in `%USERPROFILE%\.claude\settings.json` and in the project's `.claude/settings.json` and `.claude/settings.local.json`. If it is there, ask the person before removing it: it turns off every hook, not only this mod. If it is in none of them, it comes from the organization's policy (`managed-settings.json`), and only an administrator can change it. |
+   | A line mentioning `allowManagedModsOnly` | The organization allows only its own mods | Only an administrator can allow this one (not tested: it needs an organization policy). |
+   | `… failed to load …` | Claude Code is older than 2.1.295, or the mod is older than 0.4.1 | `claude update`, then `claude plugin update usage-band-mod@usage-band-mod` |
+3. Start `claude` in a folder. Within about 10 seconds a line appears above the prompt with the model name (for example `Opus 5.5`), the cost and `Context` with a bar.
    The `5h` and `7d` bars only appear on a subscription.
-3. Run `/usage-band`: the line disappears and Claude Code answers `Usage band hidden.` Run it again: `Usage band visible.`
-4. Run `/usage-settings`: Claude Code answers `Settings window open.` and a window titled **Usage band** opens. Change **Language** to **Português** and watch the band switch to `Contexto` right away. Click **Done** (or press Enter or Esc).
-5. Quit `claude` and start it again. The band is still in Portuguese, and `/config` shows the new value under `usage-band-mod`. Switch back the same way if that was only a test (the commands are now `/uso-barra` and `/uso-ajustes`).
+4. Run `/usage-band`: the line disappears and Claude Code answers `Usage band hidden.` Run it again: `Usage band visible.`
+5. Run `/usage-settings`: Claude Code answers `Settings window open.` and a window titled **Usage band** opens. Change **Language** to **Português** and watch the band switch to `Contexto` right away. Click **Done** (or press Enter or Esc).
+6. Quit `claude` and start it again. The band is still in Portuguese, and `/config` shows the new value under `usage-band-mod`. Switch back the same way if that was only a test (the commands are now `/uso-barra` and `/uso-ajustes`).
 
 If `/usage-settings` answers that the window needs macOS 26 or Windows 10/11, go back to the .NET Framework row in [Before you start](#before-you-start).
 
@@ -78,6 +91,8 @@ The options live in Claude Code's own settings: `/config`, under `usage-band-mod
 | Symptom | Cause | Do this |
 |---|---|---|
 | No band above the prompt | The plugin is disabled | `claude plugin enable usage-band-mod@usage-band-mod`, then restart `claude` |
+| No band above the prompt, and the plugin is enabled | Claude Code did not load the mod | Run step 2 of [Check that it worked](#check-that-it-worked): it says why |
+| `claude plugin install` says the marketplace is blocked or not allowed | The organization's policy limits marketplaces (`strictKnownMarketplaces` or `blockedMarketplaces`) | Only an administrator can allow `jonathanlocks/usage-band-mod`. Do not work around the policy |
 | No band above the prompt, only in the desktop app | Version 0.4.0 or older: the engine some desktop apps bundle (2.1.295) refused it | `claude plugin update usage-band-mod@usage-band-mod`, then restart the app |
 | No band above the prompt | A survey or other prompt is using that space, or the band was hidden with `×` | Wait for the survey to go away; run `/usage-band` to show the band again |
 | The band is cut short | The terminal is narrow | Widen the window: the band drops details (reset times, bars, cost) to stay on one line |
